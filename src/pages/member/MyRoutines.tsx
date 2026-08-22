@@ -322,10 +322,17 @@ export default function MyRoutinesPage() {
         <span className="text-text-4 mx-0.5">/</span>
         <span className="font-medium text-text-1">Mis rutinas</span>
       </div>
-      <div className="flex items-center gap-2">
-        <Button variant="ghost" size="sm" onClick={() => { setImportCode(''); setImportOpen(true) }}>
-          Importar código
-        </Button>
+      <div className="flex items-center gap-1.5 sm:gap-2">
+        <button title="Importar código" aria-label="Importar código"
+          onClick={() => { setImportCode(''); setImportOpen(true) }}
+          className="sm:hidden w-8 h-8 rounded-md flex items-center justify-center cursor-pointer border border-border text-text-3 hover:bg-surface2 hover:text-text transition-colors bg-transparent shrink-0">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>
+        </button>
+        <span className="hidden sm:block">
+          <Button variant="ghost" size="sm" onClick={() => { setImportCode(''); setImportOpen(true) }}>
+            Importar código
+          </Button>
+        </span>
         <Button variant="primary" size="sm" onClick={openCreate}>+ Nueva rutina</Button>
       </div>
     </header>

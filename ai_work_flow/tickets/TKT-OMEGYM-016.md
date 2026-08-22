@@ -39,8 +39,20 @@ Alcance de la confirmación:
 
 ### Proyecto PROD `xlawavqceyprraeyrmtm` (`.env`, Vercel)
 - `mailer_autoconfirm=false` → confirmación **ya activa** (se mantiene).
-- `site_url=https://omega-gym-eight.vercel.app`
-- `uri_allow_list=https://omega-gym-eight.vercel.app/**`
+- **Dominio actualizado (2026-08-22)**: el deploy de Vercel migró a
+  `https://omegagym.vercel.app` — **aplicado vía Management API** y verificado
+  con lectura posterior:
+  - `site_url=https://omegagym.vercel.app`
+  - `uri_allow_list=https://omegagym.vercel.app/**,https://omega-gym-eight.vercel.app/**,http://localhost:5173/**`
+    (se conserva el dominio viejo durante la transición por emails ya enviados;
+    localhost agregado para previews locales contra PROD).
+- Configuración anterior (histórico):
+  - `site_url=https://omega-gym-eight.vercel.app`
+  - `uri_allow_list=https://omega-gym-eight.vercel.app/**`
+- Nota: el frontend no requirió cambios — `emailRedirectTo`/`redirectTo` usan
+  `${window.location.origin}/auth/callback` (dinámico). El login por
+  email+password no depende de la allow-list; el cambio afecta únicamente a
+  confirmación de registro y recuperación de contraseña.
 
 ### SMTP custom (Gmail) + plantilla personalizada (aplicado en DEV y PROD)
 - Configurado `smtp_host=smtp.gmail.com`, `smtp_port=465`, remitente

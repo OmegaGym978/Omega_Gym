@@ -31,6 +31,8 @@ const EQUIPMENT_ES: Record<string, string> = {
   'weighted': 'Con peso',
 }
 
+const PAGE_SIZE = 40;
+
 interface Props {
   value: string
   exerciseId: string | null
@@ -41,44 +43,62 @@ interface Props {
 export function ExercisePicker({ value, exerciseId, onSelect, placeholder }: Props) {
   const [query, setQuery] = useState(value)
   const [results, setResults] = useState<Exercise[]>([])
+  const [hasMore, setHasMore] = useState(false)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [categories, setCategories] = useState<string[]>([])
   const [selectedCategory, setSelectedCategory] = useState<string>('')
   const [loading, setLoading] = useState(false)
   const [open, setOpen] = useState(false)
   const debounceRef = useRef<number | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
+  const lastParamsRef = useRef<{ q: string; cat: string }>({ q: '', cat: '' })
 
   useEffect(() => {
     exercisesService.getCategories().then(setCategories).catch(() => {})
   }, [])
 
-  const search = useCallback(async (q: string, cat?: string) => {
-    setLoading(true)
+  const loadPage = useCallback(async (q: string, cat: string, offset: number) => {
+    if (offset === 0) setLoading(true)
+    else setLoadingMore(true)
     try {
-      const filters: any = { limit: 20 }
+      const filters: any = { limit: PAGE_SIZE + 1 }
       if (q.trim()) filters.search = q.trim()
       if (cat) filters.category = cat
+      if (offset > 0) filters.offset = offset
       const data = await exercisesService.getAll(filters)
-      setResults(data)
+      const more = data.length > PAGE_SIZE
+      setResults(prev => offset === 0
+        ? data.slice(0, PAGE_SIZE)
+        : [...prev, ...data.slice(0, PAGE_SIZE)])
+      setHasMore(more)
+      lastParamsRef.current = { q, cat }
     } catch {
-      setResults([])
+      if (offset === 0) setResults([])
+      setHasMore(false)
     } finally {
       setLoading(false)
+      setLoadingMore(false)
     }
   }, [])
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current)
     debounceRef.current = window.setTimeout(() => {
-      search(query, selectedCategory)
+      loadPage(query, selectedCategory, 0)
     }, 250)
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current) }
-  }, [query, selectedCategory, search])
+  }, [query, selectedCategory, loadPage])
 
   useEffect(() => {
     if (!open) return
-    search(query, selectedCategory)
-  }, [open, search, query, selectedCategory])
+    loadPage(query, selectedCategory, 0)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open])
+
+  function handleLoadMore() {
+    if (loading || loadingMore) return
+    loadPage(lastParamsRef.current.q, lastParamsRef.current.cat, results.length)
+  }
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -208,6 +228,12 @@ export function ExercisePicker({ value, exerciseId, onSelect, placeholder }: Pro
                 )}
               </button>
             ))
+          )}
+          {!loading && hasMore && (
+            <button type="button" onClick={handleLoadMore} disabled={loadingMore}
+              className="w-full py-2 text-[11px] font-semibold text-accent hover:bg-surface2 cursor-pointer border-t border-border2 transition-colors disabled:opacity-50">
+              {loadingMore ? 'Cargando...' : 'Ver más'}
+            </button>
           )}
         </div>
       )}

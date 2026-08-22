@@ -28,6 +28,7 @@ export interface ExerciseFilters {
   muscle_group?: string
   equipment?: string
   limit?: number
+  offset?: number
 }
 
 export const exercisesService = {
@@ -55,7 +56,9 @@ export const exercisesService = {
       query = query.eq('equipment', filters.equipment)
     }
 
-    if (filters?.limit) {
+    if (filters?.offset !== undefined && filters?.limit) {
+      query = query.range(filters.offset, filters.offset + filters.limit - 1)
+    } else if (filters?.limit) {
       query = query.limit(filters.limit)
     }
 
