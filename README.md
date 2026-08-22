@@ -1,6 +1,6 @@
 # Omega Gym
 
-Sistema de gestión de gimnasio web — Vite + React + React Router v7 + Supabase.
+Sistema de gestión de gimnasio web — Vite + React + React Router v7 + Supabase
 
 ## Stack
 
