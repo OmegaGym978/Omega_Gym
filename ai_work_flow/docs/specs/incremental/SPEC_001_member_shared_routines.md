@@ -51,13 +51,19 @@ Extensión del módulo de planes de entrenamiento para que los **miembros** pued
 - Mis rutinas deja de ser "solo lectura" en asignadas: único control permitido al miembro es su visibilidad (sin editar/eliminar/compartir).
 - Migración 20260821130000 aplicada SOLO en DEV; producción pendiente junto al resto de SPEC_001.
 
+### Extensión aprobada (2026-10-29, TKT-OMEGYM-027)
+- La regla 5 pasa de declarativa a **aplicada por RLS**: `training_plans_select` y `plan_exercises_select` limitan al staff (`admin`/`trainer`) a filas `kind='trainer'`.
+- La escritura del staff (`insert`/`update`/`delete` en `training_plans` y `plan_exercises`) también queda limitada a `kind='trainer'`; sus propias rutinas personales siguen editables vía las políticas `members_personal_*`.
+- `trainingService.getAll()` filtra `kind='trainer'` como defensa en profundidad; `duplicate()` fija `kind='trainer'`.
+- Migración `20261029000001_staff_scope_training_plans.sql`.
+
 ## 4. Reglas de Negocio
 
 1. Una rutina personal pertenece a un solo miembro (`created_by`); solo su dueño puede editarla, eliminarla, compartirla o revocarla.
 2. El código es estable mientras no se regenere o revoque. Regenerar invalida el anterior. Revocar = `share_code = NULL`.
 3. Importar por código crea SIEMPRE una copia nueva e independiente (nombre sufijado `"(copia)"`); se permite importar la misma rutina varias veces.
 4. Un miembro NO puede importar su propio código (error controlado).
-5. Las rutinas personales nunca aparecen en las vistas de entrenador ni afectan asignaciones de `plan_assignments`.
+5. Las rutinas personales nunca aparecen en las vistas de entrenador ni admin (enforce por RLS desde TKT-OMEGYM-027) ni afectan asignaciones de `plan_assignments`.
 6. Los planes creados por entrenador/admin conservan `kind='trainer'` (DEFAULT retrocompatible).
 7. El receptor debe ser un usuario autenticado activo con perfil existente.
 
@@ -70,6 +76,7 @@ Extensión del módulo de planes de entrenamiento para que los **miembros** pued
 - [ ] Editar la copia NO modifica la original (verificado en BD).
 - [ ] Auto-import rechazado; código inválido/revokeado da mensaje claro.
 - [ ] Un miembro NO puede leer/editar rutinas personales ajenas vía API directa (RLS), solo vía RPC de importación.
+- [ ] El staff (admin/entrenador) NO puede leer rutinas personales ni por API directa: `GET /rest/v1/training_plans?kind=eq.personal` devuelve `[]` (TKT-OMEGYM-027).
 - [ ] Flujos existentes de entrenador (crear/asignar/duplicar planes) intactos.
 
 ## 6. Tickets Relacionados
@@ -80,6 +87,7 @@ Extensión del módulo de planes de entrenamiento para que los **miembros** pued
 | TKT-OMEGYM-020 | Servicio `routines.service.ts` |
 | TKT-OMEGYM-021 | Página Mis Rutinas + router |
 | TKT-OMEGYM-022 | Compartir/importar por código (UI + pruebas E2E del flujo) |
+| TKT-OMEGYM-027 | RLS: staff limitado a `kind='trainer'` (ocultar rutinas personales) |
 
 ## 7. Fuera de Riesgo / Notas
 

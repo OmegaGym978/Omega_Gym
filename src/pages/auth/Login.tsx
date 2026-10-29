@@ -31,7 +31,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="bg-surface border border-border rounded p-8">
+    <div className="bg-surface  rounded-3xl p-8">
       <div className="mb-6">
         <div className="text-[18px] font-semibold">Iniciar sesión</div>
         <div className="text-[12px] text-text-3 mt-1">Accede a tu cuenta del gimnasio</div>
@@ -49,13 +49,13 @@ export default function LoginPage() {
         <div>
           <label className="block text-[12px] font-medium text-text-2 mb-1.5">Correo electrónico</label>
           <input type="email" placeholder="tu@correo.com" value={email} onChange={(e) => setEmail(e.target.value)}
-            className="w-full bg-bg border border-border text-text text-[13px] px-3.5 py-2.5 rounded-sm outline-none font-sans" />
+            className="w-full bg-surface border-none text-text text-[17px] px-4 py-4 rounded-2xl outline-none font-sans focus:ring-2 focus:ring-accent/40 placeholder:text-text-3" />
         </div>
         <div>
           <label className="block text-[12px] font-medium text-text-2 mb-1.5">Contraseña</label>
           <div className="relative">
             <input type={showPw ? 'text' : 'password'} placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)}
-              className="w-full bg-bg border border-border text-text text-[13px] px-3.5 py-2.5 rounded-sm outline-none font-sans" />
+              className="w-full bg-surface border-none text-text text-[17px] px-4 py-4 rounded-2xl outline-none font-sans focus:ring-2 focus:ring-accent/40 placeholder:text-text-3" />
             <button type="button" onClick={() => setShowPw(!showPw)}
               className="absolute right-2.5 top-1/2 -translate-y-1/2 bg-none border-none text-text-3 cursor-pointer text-[11px] font-sans">
               {showPw ? 'Ocultar' : 'Mostrar'}
@@ -68,8 +68,8 @@ export default function LoginPage() {
           </Link>
         </div>
         <button type="submit" disabled={submitting}
-          className={`w-full py-[11px] rounded-sm border-none text-[14px] font-semibold cursor-pointer font-sans mt-1
-            ${submitting ? 'bg-accent-dim text-black/60' : 'bg-accent text-black'}`}>
+          className={`w-full py-[11px] rounded-full border-none text-[14px] font-semibold cursor-pointer font-sans mt-1
+            ${submitting ? 'bg-accent-dim text-text-3' : 'bg-accent text-accent-contrast'}`}>
           {submitting ? 'Entrando...' : 'Entrar'}
         </button>
       </form>
@@ -80,7 +80,7 @@ export default function LoginPage() {
       </div>
 
       {import.meta.env.DEV && (
-        <div className="mt-5 p-3 bg-amber-bg/50 rounded-sm text-[11px] text-amber-text leading-relaxed border border-amber/20">
+        <div className="mt-5 p-3 bg-amber-bg/50 rounded-2xl text-[11px] text-amber-text leading-relaxed border border-amber/20">
           <strong>Demo:</strong> admin@omega.com / Admin123! &nbsp;·&nbsp; trainer@omega.com / Trainer123! &nbsp;·&nbsp; member@omega.com / Member123!
         </div>
       )}

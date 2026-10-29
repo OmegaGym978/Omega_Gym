@@ -11,12 +11,12 @@ export function PwaUpdateBanner() {
   return (
     <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[70] w-[calc(100vw-2rem)] max-w-[420px] animate-slide-up">
       <div
-        className="flex items-center justify-between gap-3 rounded-lg border border-accent/30 px-4 py-3 shadow-2xl"
+        className="flex items-center justify-between gap-3 rounded-2xl border border-accent/30 px-4 py-3"
         style={{ background: 'var(--surface)', boxShadow: '0 8px 30px rgba(0,0,0,0.35)' }}
       >
         <div className="flex items-center gap-3 min-w-0">
-          <div className="w-8 h-8 rounded-sm flex items-center justify-center shrink-0"
-            style={{ background: 'rgba(59,130,246,0.12)', color: '#60a5fa' }}>
+          <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0"
+            style={{ background: 'var(--accent-dim)', color: 'var(--accent)' }}>
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" />
               <polyline points="17 6 23 6 23 12" />

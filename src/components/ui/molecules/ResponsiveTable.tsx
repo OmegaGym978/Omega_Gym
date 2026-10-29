@@ -58,8 +58,9 @@ export function ResponsiveTable<T>({
   return (
     <>
       {/* Desktop table */}
-      <div className="hidden lg:block overflow-x-auto">
-        <table className="w-full border-collapse text-[13px]">
+      <div className="hidden lg:block bg-surface  rounded-2xl overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse text-[13px]">
           <thead>
             <tr className="border-b border-border">
               {columns.map((col) => (
@@ -78,7 +79,7 @@ export function ResponsiveTable<T>({
               <tr
                 key={keyExtractor(item)}
                 onClick={() => onRowClick?.(item)}
-                className={`border-l-2 border-transparent hover:border-accent transition-colors duration-100 hover:bg-surface2/50 ${onRowClick ? 'cursor-pointer' : ''}`}
+                className={`border-l-2 border-transparent transition-colors duration-100 lg:hover:border-accent lg:hover:bg-surface2/50 ${onRowClick ? 'cursor-pointer' : ''}`}
               >
                 {columns.map((col) => (
                   <td
@@ -93,15 +94,18 @@ export function ResponsiveTable<T>({
             ))}
           </tbody>
         </table>
+        </div>
       </div>
 
       {/* Mobile cards */}
-      <div className="block lg:hidden divide-y divide-border">
+      <div className="lg:hidden flex flex-col gap-2">
         {data.map((item) => (
           <div
             key={keyExtractor(item)}
             onClick={() => onRowClick?.(item)}
-            className={`border-l-2 border-transparent hover:border-accent bg-surface px-4 py-4 ${onRowClick ? 'cursor-pointer' : ''} ${onRowClick ? 'hover:bg-surface2/50' : ''}`}
+            className={`bg-surface  rounded-2xl px-4 py-4 transition-colors ${
+              onRowClick ? 'cursor-pointer border-accent/30' : ''
+            }`}
           >
             <div className="flex items-start gap-3 mb-3">
               {cardAvatar && (

@@ -1,398 +1,338 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuthStore } from '@/store/auth.store'
 import { trainingService, type TrainingPlan, type PlanExercise } from '@/services/training.service'
 import { routinesService } from '@/services/routines.service'
-import { exercisesService, type Exercise } from '@/services/exercises.service'
-
-const DAY_NAMES = ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
+import { sessionsService, type WeeklyStats } from '@/services/sessions.service'
+import { ScreenHeader } from '@/components/ui/layout/ScreenHeader'
+import { BottomSheet } from '@/components/ui/molecules/BottomSheet'
+import { WorkoutSession } from '@/components/workout/WorkoutSession'
+import { todayLabel, weekdayIndex } from '@/lib/dates'
 
 type MemberPlan = TrainingPlan & {
-  creator: { id: string; full_name: string } | null;
-  origin: 'assigned' | 'personal';
-};
-const NOISE = "data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E";
+  creator: { id: string; full_name: string } | null
+  origin: 'assigned' | 'personal'
+  visible?: boolean
+}
 
-const staggerClass = (i: number) => {
-  const map = ['stagger-1','stagger-2','stagger-3','stagger-4','stagger-5','stagger-6','stagger-7'];
-  return map[i] || '';
-};
+type SessionState = {
+  planId: string
+  name: string
+  exercises: PlanExercise[]
+}
+
+function plannedVolume(exercises: PlanExercise[]): number {
+  return exercises.reduce((acc, ex) => {
+    const sets = ex.set_details && ex.set_details.length > 0
+      ? ex.set_details
+      : [{ weight: null, reps: ex.reps }]
+    return acc + sets.reduce((sum, s) => sum + (s.weight && s.reps ? s.weight * s.reps : 0), 0)
+  }, 0)
+}
+
+function fmtVolume(value: number): string {
+  if (!value) return '—'
+  return `${Math.round(value).toLocaleString('es-MX')} kg`
+}
 
 export default function MyPlanPage() {
   const user = useAuthStore(s => s.user)
-  const [day, setDay] = useState(new Date().getDay() === 0 ? 6 : new Date().getDay() - 1);
-  const [loading, setLoading] = useState(true);
+
+  const [loading, setLoading] = useState(true)
   const [plans, setPlans] = useState<MemberPlan[]>([])
-  const [activePlanIdx, setActivePlanIdx] = useState(0)
+  const [todayPlans, setTodayPlans] = useState<MemberPlan[]>([])
+  const [activeIdx, setActiveIdx] = useState(0)
   const [exercises, setExercises] = useState<PlanExercise[]>([])
-  const [catalogMap, setCatalogMap] = useState<Map<string, Exercise>>(new Map())
-  const [expandedExercises, setExpandedExercises] = useState<Set<string>>(new Set())
+  const [exercisesLoading, setExercisesLoading] = useState(false)
+  const [stats, setStats] = useState<WeeklyStats>({ sessions: 0, visits: 0, volume: 0, streak: 0 })
+  const [session, setSession] = useState<SessionState | null>(null)
+  const [viewOpen, setViewOpen] = useState(false)
 
-  const loadPlan = useCallback(async (idx: number, allPlans: MemberPlan[]) => {
-    const target = allPlans[idx]
-    setActivePlanIdx(idx)
-    setExercises([])
-    setCatalogMap(new Map())
-    if (!target) return
-    const exs = await trainingService.getExercises(target.id)
-    setExercises(exs)
+  const loadStats = useCallback(async (memberId: string) => {
+    try {
+      const data = await sessionsService.getWeeklyStats(memberId)
+      setStats(data)
+    } catch {
+      setStats({ sessions: 0, visits: 0, volume: 0, streak: 0 })
+    }
+  }, [])
 
-    const catalogIds = [...new Set(exs.filter(e => e.exercise_id).map(e => e.exercise_id!))]
-    if (catalogIds.length > 0) {
-      try {
-        const catalogExs = await exercisesService.getByIds(catalogIds)
-        const newMap = new Map<string, Exercise>()
-        catalogExs.forEach(ce => newMap.set(ce.id, ce))
-        setCatalogMap(newMap)
-      } catch {
-        // Silently fail - catalog data is optional
-      }
+  const loadExercises = useCallback(async (planId: string) => {
+    setExercisesLoading(true)
+    try {
+      const data = await trainingService.getExercises(planId)
+      setExercises(data)
+    } catch {
+      setExercises([])
+    } finally {
+      setExercisesLoading(false)
     }
   }, [])
 
   useEffect(() => {
-    if (!user) return;
-    const ctrl = { ignore: false }
+    if (!user) return
+    let ignore = false
     ;(async () => {
       try {
-        const [assignedPlans, mineRoutines] = await Promise.all([
+        const [assigned, mine] = await Promise.all([
           trainingService.getByMemberAll(user.id),
           routinesService.getMine(user.id),
         ])
-        if (ctrl.ignore) return
-        // Asignadas por el entrenador primero (respetando preferencia del miembro), luego las rutinas propias visibles
+        if (ignore) return
+
         const merged: MemberPlan[] = [
-          ...assignedPlans.filter(p => p.visible !== false).map((p): MemberPlan => ({ ...p, origin: 'assigned' })),
-          ...mineRoutines.filter(r => r.show_in_plan !== false).map((r): MemberPlan => ({
-            id: r.id,
-            name: r.name,
-            description: r.description,
-            assigned_to: null,
-            created_by: user.id,
-            created_at: r.created_at,
-            updated_at: r.updated_at,
-            creator: null,
-            origin: 'personal',
-          })),
+          ...assigned
+            .filter(p => p.visible !== false)
+            .map((p): MemberPlan => ({ ...p, origin: 'assigned', scheduled_days: p.scheduled_days ?? null })),
+          ...mine
+            .filter(r => r.show_in_plan !== false)
+            .map((r): MemberPlan => ({
+              id: r.id,
+              name: r.name,
+              description: r.description,
+              assigned_to: null,
+              created_by: user.id,
+              created_at: r.created_at,
+              updated_at: r.updated_at,
+              scheduled_days: r.scheduled_days ?? null,
+              creator: null,
+              origin: 'personal',
+            })),
         ]
+
+        const day = weekdayIndex()
+        const todays = merged.filter(p => p.scheduled_days?.includes(day))
+
         setPlans(merged)
-        if (merged.length > 0) {
-          await loadPlan(0, merged)
-        }
-      } catch (err) {
-        console.error('Error loading plan:', err)
+        setTodayPlans(todays)
+        setActiveIdx(0)
+
+        if (todays[0]) await loadExercises(todays[0].id)
+        else setExercises([])
+      } catch {
+        setPlans([])
+        setTodayPlans([])
       }
-      if (!ctrl.ignore) setLoading(false)
+
+      await loadStats(user.id)
+      if (!ignore) setLoading(false)
     })()
-    return () => { ctrl.ignore = true }
-  }, [user])
+    return () => { ignore = true }
+  }, [user, loadExercises, loadStats])
 
-  const toggleExpand = useCallback((id: string) => {
-    setExpandedExercises(prev => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
-  }, [])
+  const todayPlan = todayPlans[activeIdx] ?? null
+  const hasPlans = plans.length > 0
+  const canTrain = !!todayPlan && exercises.length > 0 && !exercisesLoading
 
-  const selectPlan = useCallback(async (idx: number) => {
-    await loadPlan(idx, plans)
-  }, [loadPlan, plans])
+  function selectTodayPlan(idx: number) {
+    setActiveIdx(idx)
+    const target = todayPlans[idx]
+    if (target) loadExercises(target.id)
+  }
 
-  if (loading || !user) {
+  function startWorkout() {
+    if (!todayPlan || exercises.length === 0) return
+    setSession({ planId: todayPlan.id, name: todayPlan.name, exercises })
+  }
+
+  if (!user) {
     return (
-      <div className="p-4 sm:p-7 flex items-center justify-center min-h-[60vh]">
-        <div className="text-sm text-text-3">{loading ? 'Cargando...' : 'Inicia sesión para ver tu plan'}</div>
+      <div className="p-4 flex items-center justify-center min-h-[60vh]">
+        <div className="text-sm text-text-3">Inicia sesión para ver tu resumen.</div>
       </div>
     )
   }
 
-  const exsByDay: Record<number, PlanExercise[]> = {}
-  exercises.forEach(e => {
-    const d = e.day ?? 0
-    if (!exsByDay[d]) exsByDay[d] = []
-    exsByDay[d].push(e)
-  })
-
-  const todayExs = exsByDay[day] || []
-  const isRest = todayExs.length === 0 && exercises.length > 0
-  const hasExercises = exercises.length > 0
-  const currentPlan = plans[activePlanIdx] ?? null
-
-  const initials = user.full_name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) || '??'
-  const memberSince = new Date(user.created_at)
-  const memberSinceStr = memberSince.toLocaleDateString('es-MX', { month: 'short', year: 'numeric' })
-
-  const hour = new Date().getHours() + new Date().getMinutes() / 60
-  const greeting = hour < 12 ? 'Buenos días' : hour < 18 ? 'Buenas tardes' : 'Buenas noches'
   const firstName = user.full_name.split(' ')[0]
-  const avatarColors = ['#60a5fa','#f59e0b','#22c55e','#a78bfa','#f472b6','#38bdf8','#fb923c']
-  const avatarColor = avatarColors[user.full_name.length % avatarColors.length]
+  const hour = new Date().getHours()
+  const greeting = hour < 12 ? 'Buenos días' : hour < 18 ? 'Buenas tardes' : 'Buenas noches'
+  const volumeValue = stats.volume > 0 ? fmtVolume(stats.volume) : fmtVolume(plannedVolume(exercises))
+  const volumeLabel = stats.volume > 0 ? 'Levantado esta semana' : 'Planeado para hoy'
 
-  return (<>
-    <header className="px-4 sm:px-7 h-14 flex items-center justify-between border-b border-border bg-surface2 sticky top-0 z-40">
-      <div className="flex items-center gap-2 text-xs sm:text-[13px] text-text-3">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 9l9-7 9 9M5 10v10a1 1 0 0 0 1 1h3v-6h6v6h3a1 1 0 0 0 1-1V10"/></svg>
-        <span className="text-text-4 mx-0.5">/</span>
-        <span className="font-medium text-text-1">Mi plan</span>
-      </div>
-    </header>
+  return (
+    <>
+      <ScreenHeader title="Inicio" subtitle={todayLabel()} />
 
-    <div className="p-4 sm:p-7 flex-1 max-w-screen-xl mx-auto w-full">
-
-      {/* Greeting card */}
-      <div className={`bg-surface border border-border rounded-2xl p-6 sm:p-7 mb-5 relative overflow-hidden animate-slide-up ${staggerClass(1)}`}>
-        <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-accent to-transparent" />
-        <div className="absolute -top-12 -right-12 w-44 h-44 rounded-full pointer-events-none"
-          style={{ background: 'radial-gradient(circle, var(--accent), transparent 70%)', opacity: 0.07 }} />
-        <div className="absolute inset-0 pointer-events-none" style={{ backgroundImage: `url("${NOISE}")`, backgroundSize: '200px 200px', opacity: 0.015 }} />
-        <div className="flex items-center justify-between gap-6 relative z-10">
-          <div className="flex items-center gap-4 min-w-0">
-            <div className="w-16 h-16 rounded-full flex items-center justify-center text-xl font-semibold shrink-0"
-              style={{ background: `${avatarColor}18`, color: avatarColor }}>{initials}</div>
-            <div className="min-w-0">
-              <div className="text-[28px] sm:text-[34px] leading-tight font-display italic -tracking-[0.02em]">¡{greeting}, {firstName}!</div>
-              <div className="text-xs text-text-3 mt-1 truncate">{user.email} · Miembro desde {memberSinceStr}</div>
+      <div className="px-4 sm:px-5 py-4 flex-1 mx-auto w-full max-w-[560px]">
+        {/* Saludo */}
+        <div className="flex items-center justify-between gap-3 mb-4">
+          <div className="min-w-0">
+            <div className="text-[20px] font-bold leading-tight truncate">{greeting}, {firstName}</div>
+            <div className="text-[12px] text-text-3 mt-0.5 truncate">
+              {hasPlans ? `${plans.length} rutina${plans.length !== 1 ? 's' : ''} disponible${plans.length !== 1 ? 's' : ''}` : 'Aún sin rutinas'}
             </div>
           </div>
-          <div className="text-center bg-surface2 border border-border rounded-xl px-5 py-3 min-w-[90px] shrink-0">
-            <div className="text-2xl font-bold leading-none mb-1" style={{ color: hasExercises ? 'var(--accent)' : 'var(--text-3)' }}>
-              {hasExercises ? todayExs.length : '—'}
-            </div>
-            <div className="text-[10px] text-text-3 uppercase tracking-[0.06em]">Ejerc. hoy</div>
+          <div className="shrink-0 flex flex-col items-center bg-surface rounded-2xl px-3.5 py-2">
+            <span className="text-[18px] font-bold leading-none" style={{ color: stats.streak > 0 ? 'var(--accent)' : 'var(--text-3)' }}>
+              {stats.streak}
+            </span>
+            <span className="text-[9px] text-text-3 uppercase tracking-[0.06em] mt-1">Racha</span>
           </div>
         </div>
-      </div>
 
-      {/* Plan header */}
-      <div className={`bg-surface border border-border rounded-xl p-[18px] sm:p-5 flex items-center gap-3.5 mb-4 animate-slide-up ${staggerClass(2)}`}>
-        <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
-          style={{ background: 'var(--accent-dim)', color: 'var(--accent)' }}>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-4 h-4"><polyline points="20 6 9 17 4 12"/></svg>
-        </div>
-        <div className="min-w-0">
-          <div className="text-sm font-bold">{currentPlan ? currentPlan.name : 'Mi plan de entrenamiento'}</div>
-        </div>
-        {currentPlan && (
-          <div className="ml-auto text-[11px] font-bold text-accent bg-accent-dim border border-accent/40 px-2.5 py-[3px] rounded-full whitespace-nowrap">
-            Activo
+        {loading ? (
+          <div className="flex flex-col gap-3">
+            <div className="h-44 rounded-3xl skeleton" />
+            <div className="h-24 rounded-2xl skeleton" />
+          </div>
+        ) : !hasPlans ? (
+          <div className="bg-surface rounded-3xl p-8 text-center flex flex-col items-center gap-3">
+            <div className="w-14 h-14 rounded-full bg-accent-dim text-accent flex items-center justify-center">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+                <path d="M6.5 6.5l11 11M4 9v6M20 9v6M7 7v10M17 7v10" />
+              </svg>
+            </div>
+            <div className="text-sm font-semibold">Aún no tienes rutinas</div>
+            <div className="text-[12px] text-text-3 max-w-[280px] leading-relaxed">
+              Crea una rutina propia o pide a tu entrenador que te asigne un plan. Después podrás programarla por día.
+            </div>
+            <Link to="/my-routines" className="mt-1 h-11 px-5 rounded-full bg-accent text-accent-contrast text-[13px] font-bold inline-flex items-center no-underline active:opacity-70">
+              Ir a Entrenamiento
+            </Link>
+          </div>
+        ) : todayPlan ? (
+          <>
+            {/* Rutina de hoy */}
+            <section className="bg-surface rounded-3xl p-5 relative overflow-hidden">
+              <div className="absolute top-0 left-0 right-0 h-1 bg-accent opacity-80" />
+              <div className="text-[10px] uppercase tracking-[0.12em] font-bold text-accent">Hoy toca</div>
+              <h2 className="text-[24px] font-bold leading-tight mt-1.5">{todayPlan.name}</h2>
+              <div className="text-[12px] text-text-3 mt-1">
+                {todayPlan.origin === 'assigned'
+                  ? `Por ${todayPlan.creator?.full_name ?? 'tu entrenador'}`
+                  : 'Rutina propia'}
+              </div>
+
+              <div className="grid grid-cols-3 gap-2 mt-4">
+                <div className="bg-surface2 rounded-2xl px-3 py-2.5">
+                  <div className="text-[17px] font-bold leading-none">{exercisesLoading ? '—' : exercises.length}</div>
+                  <div className="text-[9px] text-text-3 uppercase tracking-[0.06em] mt-1">Ejercicios</div>
+                </div>
+                <div className="bg-surface2 rounded-2xl px-3 py-2.5">
+                  <div className="text-[17px] font-bold leading-none">
+                    {exercisesLoading ? '—' : exercises.reduce((acc, ex) => acc + (ex.set_details?.length ?? ex.sets ?? 0), 0)}
+                  </div>
+                  <div className="text-[9px] text-text-3 uppercase tracking-[0.06em] mt-1">Series</div>
+                </div>
+                <div className="bg-surface2 rounded-2xl px-3 py-2.5">
+                  <div className="text-[17px] font-bold leading-none">{fmtVolume(plannedVolume(exercises))}</div>
+                  <div className="text-[9px] text-text-3 uppercase tracking-[0.06em] mt-1">Planeado</div>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={startWorkout}
+                disabled={!canTrain}
+                className="mt-4 w-full h-14 rounded-full bg-accent text-accent-contrast text-[16px] font-bold border-none cursor-pointer active:opacity-70 disabled:opacity-40 disabled:cursor-not-allowed transition-opacity"
+              >
+                {exercisesLoading ? 'Cargando…' : canTrain ? 'Empezar rutina' : 'Agrega ejercicios para entrenar'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewOpen(true)}
+                disabled={exercisesLoading || exercises.length === 0}
+                className="mt-2 w-full h-11 rounded-full bg-transparent text-accent text-[14px] font-semibold border-none cursor-pointer active:opacity-70 disabled:opacity-40 disabled:cursor-not-allowed transition-opacity"
+              >
+                Ver rutina
+              </button>
+            </section>
+
+            {todayPlans.length > 1 && (
+              <div className="mt-4">
+                <div className="text-[10px] uppercase tracking-[0.08em] text-text-3 font-bold mb-2">Otra rutina de hoy</div>
+                <div className="flex gap-2 overflow-x-auto">
+                  {todayPlans.map((p, idx) => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => selectTodayPlan(idx)}
+                      className={`shrink-0 px-3.5 py-2 rounded-full text-[12px] font-semibold border-none cursor-pointer active:opacity-70 transition-colors ${
+                        idx === activeIdx ? 'bg-accent text-accent-contrast' : 'bg-surface2 text-text-2'
+                      }`}
+                    >
+                      {p.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
+        ) : (
+          <>
+            {/* Día de descanso */}
+            <section className="bg-surface rounded-3xl p-6 text-center flex flex-col items-center gap-2">
+              <div className="w-14 h-14 rounded-full bg-surface2 text-text-2 flex items-center justify-center">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+                  <path d="M12 3a9 9 0 1 0 9 9" /><path d="M12 7v5l3 2" />
+                </svg>
+              </div>
+              <div className="text-[16px] font-semibold">Hoy es día de descanso</div>
+              <div className="text-[12px] text-text-3 max-w-[300px] leading-relaxed">
+                No tienes una rutina programada para hoy. Descansa, hidrátate y recupera.
+              </div>
+              <Link
+                to="/my-routines"
+                className="mt-2 h-11 px-5 rounded-full bg-surface2 text-text text-[13px] font-semibold inline-flex items-center no-underline active:opacity-70"
+              >
+                Explorar entrenamiento
+              </Link>
+            </section>
+          </>
+        )}
+
+        {/* Estadísticas de la semana */}
+        {!loading && hasPlans && (
+          <div className="grid grid-cols-3 gap-2 mt-4">
+            <div className="bg-surface rounded-2xl px-3 py-3">
+              <div className="text-[18px] font-bold leading-none">{stats.sessions}</div>
+              <div className="text-[9px] text-text-3 uppercase tracking-[0.06em] mt-1.5">Entrenos</div>
+            </div>
+            <div className="bg-surface rounded-2xl px-3 py-3">
+              <div className="text-[18px] font-bold leading-none">{stats.visits}</div>
+              <div className="text-[9px] text-text-3 uppercase tracking-[0.06em] mt-1.5">Visitas</div>
+            </div>
+            <div className="bg-surface rounded-2xl px-3 py-3">
+              <div className="text-[18px] font-bold leading-none truncate">{volumeValue}</div>
+              <div className="text-[9px] text-text-3 uppercase tracking-[0.06em] mt-1.5 leading-tight">{volumeLabel}</div>
+            </div>
           </div>
         )}
       </div>
 
-      {plans.length === 0 ? (
-        <div className={`bg-surface border border-border rounded-xl p-12 text-center flex flex-col items-center gap-3 animate-slide-up ${staggerClass(3)}`}>
-          <div className="w-14 h-14 rounded-full flex items-center justify-center" style={{ background: 'var(--amber-bg)', color: 'var(--amber-text)' }}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-7 h-7"><circle cx="12" cy="12" r="10"/><path d="M16 16s-1.5-2-4-2-4 2-4 2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
-          </div>
-          <div className="text-sm font-semibold">Sin planes todavía</div>
-          <div className="text-sm text-text-3 max-w-xs">
-            Cuando tu entrenador te asigne un plan aparecerá aquí. También puedes crear tus propias rutinas en la sección <Link to="/my-routines" className="text-accent no-underline font-medium hover:underline">Mis rutinas</Link>.
-          </div>
+      {/* Detalle de la rutina de hoy */}
+      <BottomSheet
+        open={viewOpen}
+        onClose={() => setViewOpen(false)}
+        title={todayPlan?.name ?? 'Rutina de hoy'}
+        subtitle={`${exercises.length} ejercicio${exercises.length !== 1 ? 's' : ''}`}
+      >
+        <div className="flex flex-col gap-2">
+          {exercises.map((ex, index) => (
+            <div key={ex.id} className="bg-surface rounded-2xl px-4 py-3 flex items-center gap-3">
+              <span className="w-7 h-7 rounded-full bg-accent-dim text-accent text-[11px] font-bold flex items-center justify-center shrink-0">
+                {index + 1}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-[13px] font-semibold truncate">{ex.exercise_name}</span>
+                {ex.muscle && <span className="block text-[11px] text-text-3 truncate">{ex.muscle}</span>}
+              </span>
+              <span className="shrink-0 text-[11px] text-text-3 font-mono">{ex.sets ?? '—'} × {ex.reps ?? '—'}</span>
+            </div>
+          ))}
         </div>
-      ) : (
-        <>
-          {/* Plan tabs */}
-          {plans.length > 1 && (
-            <div className="flex gap-1.5 mb-[18px] overflow-x-auto animate-slide-up" style={{ animationDelay: '60ms' }}>
-              {plans.map((p, idx) => (
-                <button key={p.id} onClick={() => selectPlan(idx)}
-                  className={`shrink-0 px-3.5 py-2 rounded-lg text-xs font-bold cursor-pointer transition-all duration-150 font-inherit border ${
-                    idx === activePlanIdx
-                      ? 'bg-accent text-black border-accent'
-                      : 'bg-transparent text-text-2 border-border'
-                  }`}>
-                  {p.name}
-                  {p.origin === 'personal' && (
-                    <span className={`inline-block ml-1.5 rounded-full px-[5px] py-[1px] text-[9px] uppercase tracking-wide ${
-                      idx === activePlanIdx ? 'bg-black/20 text-black/80' : 'bg-surface2 text-text-3'
-                    }`}>tuya</span>
-                  )}
-                </button>
-              ))}
-            </div>
-          )}
+      </BottomSheet>
 
-          {/* Day tabs */}
-          <div className="flex gap-1.5 mb-[18px] overflow-x-auto animate-slide-up" style={{ animationDelay: '120ms' }}>
-            {DAY_NAMES.map((d, i) => {
-              const count = (exsByDay[i] || []).length
-              const isRestDay = count === 0 && exercises.length > 0
-              return (
-                <button key={d} onClick={() => setDay(i)}
-                  className={`shrink-0 px-3.5 py-2 rounded-lg text-xs font-bold cursor-pointer transition-all duration-150 font-inherit border ${
-                    i === day
-                      ? 'bg-accent text-black border-accent'
-                      : isRestDay
-                        ? 'bg-transparent text-text-3 border-border opacity-60 italic'
-                        : 'bg-transparent text-text-2 border-border'
-                  }`}>
-                  {d}
-                  {count > 0 && (
-                    <span className={`inline-block ml-1.5 rounded-full px-[5px] py-[1px] text-[10px] ${
-                      i === day ? 'bg-black/20 text-black/80' : 'bg-surface2 text-text-3'
-                    }`}>{count}</span>
-                  )}
-                </button>
-              )
-            })}
-          </div>
-
-          {/* Exercises */}
-          <div className={`flex flex-col gap-3 animate-slide-up ${staggerClass(3)}`}>
-            {isRest ? (
-              <div className="bg-surface border border-border rounded-xl p-12 text-center flex flex-col items-center gap-3">
-                <div className="w-14 h-14 rounded-full flex items-center justify-center" style={{ background: 'var(--purple-bg)', color: 'var(--purple-text)' }}>
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-7 h-7"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
-                </div>
-                <div className="text-sm font-semibold">Día de descanso</div>
-                <div className="text-sm text-text-3">El descanso es parte del entrenamiento. Descansa, hidrátate y recupera.</div>
-              </div>
-            ) : todayExs.length === 0 && exercises.length > 0 ? (
-              <div className="bg-surface border border-border rounded-xl p-12 text-center text-text-3 text-sm">No hay ejercicios registrados para este día.</div>
-            ) : todayExs.length === 0 ? (
-              <div className="bg-surface border border-border rounded-xl p-12 text-center text-text-3 text-sm">No hay ejercicios en este plan aún.</div>
-            ) : (
-              todayExs.map((e, i) => {
-                const setCount = e.sets ?? 0
-                const catalogEx = e.exercise_id ? catalogMap.get(e.exercise_id) : null
-                const gifUrl = catalogEx?.gif_url
-                const isExpanded = expandedExercises.has(e.id)
-
-                return (
-                  <div key={e.id}
-                    className={`relative bg-surface border border-border rounded-xl overflow-hidden transition-all duration-200 hover:border-accent/20 stagger-${i + 3}`}
-                    style={{ animationDelay: `${120 + i * 60}ms` }}>
-                    {/* Left accent stripe */}
-                    <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-accent/40 rounded-l-xl" />
-
-                    {/* Collapsed header — always visible */}
-                    <div className="pl-5 pr-4 pt-3.5 pb-2.5 select-text">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex items-start gap-3 min-w-0 flex-1">
-                          {/* Set number badge */}
-                          <div className="w-7 h-7 rounded-lg bg-accent-dim flex items-center justify-center text-[11px] font-bold text-accent shrink-0 mt-0.5">
-                            {i + 1}
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="text-[15px] font-bold leading-snug text-text">
-                              {e.exercise_name}
-                            </div>
-                            {/* Tags row */}
-                            <div className="flex items-center gap-1.5 flex-wrap mt-1">
-                              {e.muscle && (
-                                <span className="bg-accent-dim text-accent text-[10px] font-bold uppercase px-2 py-[2px] rounded-[5px] tracking-wide">{e.muscle}</span>
-                              )}
-                              {catalogEx?.equipment && catalogEx.equipment !== 'bodyweight' && (
-                                <span className="bg-surface2 text-text-3 text-[10px] px-2 py-[2px] rounded-[5px] border border-border">{catalogEx.equipment}</span>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Stats: Series × Reps */}
-                        <div className="flex items-center gap-1.5 bg-surface2 border border-border rounded-lg px-2.5 py-1.5 shrink-0">
-                          <span className="text-lg font-bold leading-none">{setCount || '—'}</span>
-                          <span className="text-border2 text-xs font-light">×</span>
-                          <span className="text-lg font-bold leading-none">{e.reps ?? '—'}</span>
-                          <span className="text-[9px] text-text-3 uppercase tracking-wider font-semibold leading-none ml-0.5">rep</span>
-                        </div>
-                      </div>
-
-                      {/* Expand / collapse trigger */}
-                      <button
-                        onClick={() => toggleExpand(e.id)}
-                        className="flex items-center gap-1.5 text-[11px] text-text-3 hover:text-accent transition-colors cursor-pointer bg-transparent border-none p-0 font-inherit mt-2"
-                      >
-                        {isExpanded ? 'Ver menos' : 'Ver más detalles'}
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-3 h-3 transition-transform duration-200"
-                          style={{ transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)' }}>
-                          <polyline points="6 9 12 15 18 9"/>
-                        </svg>
-                      </button>
-                    </div>
-
-                    {/* Expandable content — acordeón */}
-                    <div className="exercise-expand-content" style={{ maxHeight: isExpanded ? '2000px' : '0px' }}>
-                      <div className="px-5 pb-4 border-t border-border">
-                        {/* GIF animation */}
-                        {gifUrl && (
-                          <div className="mt-4 rounded-lg overflow-hidden bg-surface2 border border-border">
-                            <img
-                              src={gifUrl}
-                              alt={e.exercise_name}
-                              className="max-h-[200px] object-contain mx-auto sm:w-full"
-                              loading="lazy"
-                            />
-                          </div>
-                        )}
-
-                        {/* Extra tags */}
-                        {(catalogEx?.body_part || (catalogEx?.secondary_muscles && catalogEx.secondary_muscles.length > 0)) && (
-                          <div className="flex items-center gap-1.5 flex-wrap mt-3">
-                            {catalogEx?.body_part && (
-                              <span className="bg-surface2 text-text-3 text-[10px] px-2 py-[2px] rounded-[5px] border border-border">{catalogEx.body_part}</span>
-                            )}
-                            {catalogEx?.secondary_muscles?.map(m => (
-                              <span key={m} className="bg-surface2 text-text-3 text-[10px] px-2 py-[2px] rounded-[5px] border border-border">{m}</span>
-                            ))}
-                          </div>
-                        )}
-
-                        {/* Instructions */}
-                        {catalogEx?.instructions_es && (
-                          <p className="text-text-3 text-sm leading-relaxed mt-3">
-                            {catalogEx.instructions_es}
-                          </p>
-                        )}
-
-                        {/* Notes from trainer */}
-                        {e.notes && e.notes !== catalogEx?.instructions_es && (
-                          <div className="mt-3 bg-surface2 border border-border rounded-lg p-3">
-                            <div className="text-[11px] font-bold text-text-3 uppercase tracking-[0.05em] mb-1">Notas del entrenador</div>
-                            <div className="text-[13px] text-text-2">{e.notes}</div>
-                          </div>
-                        )}
-
-                        {/* Reference link */}
-                        {e.reference_link && (
-                          <a href={e.reference_link} target="_blank" rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1.5 text-[11px] text-accent hover:text-accent/80 transition-colors no-underline mt-3 border border-accent/30 px-2.5 py-1 rounded-md">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3 h-3">
-                              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
-                              <polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
-                            </svg>
-                            Ver referencia
-                          </a>
-                        )}
-
-                      </div>
-                    </div>
-                  </div>
-                )
-              })
-            )}
-          </div>
-
-          {/* Notes */}
-          {currentPlan.description && (
-            <div className={`bg-surface border border-border rounded-xl p-[18px] sm:p-5 mt-4 animate-slide-up ${staggerClass(4)} select-text`}>
-              <div className="text-xs font-bold text-text-3 uppercase tracking-[0.05em] mb-2">Notas del plan</div>
-              <div className="text-sm text-text-2 leading-relaxed">{currentPlan.description}</div>
-            </div>
-          )}
-        </>
-      )}
-    </div>
-
-    <style>{`
-      .exercise-expand-content {
-        max-height: 0;
-        overflow: hidden;
-        transition: max-height 0.35s cubic-bezier(0.4, 0, 0.2, 1);
-      }
-    `}</style>
-  </>
-  );
+      {/* Sesión */}
+      <WorkoutSession
+        open={session !== null}
+        onClose={() => setSession(null)}
+        planName={session?.name ?? ''}
+        planId={session?.planId ?? null}
+        memberId={user.id}
+        exercises={session?.exercises ?? []}
+        onSaved={() => { loadStats(user.id) }}
+      />
+    </>
+  )
 }

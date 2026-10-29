@@ -1,9 +1,10 @@
 ﻿import { useState, useEffect } from 'react';
 import { membersService, type MemberListItem } from '@/services/members.service'
 import { SearchInput } from '@/components/ui/molecules/SearchInput'
+import { ScreenHeader } from '@/components/ui/layout/ScreenHeader'
 
 const AV_COLORS = [
-  { bg: 'rgba(59,130,246,0.15)', fg: '#60a5fa' },
+  { bg: 'var(--accent-dim)', fg: 'var(--accent)' },
   { bg: 'rgba(16,185,129,0.15)', fg: '#34d399' },
   { bg: 'rgba(244,114,182,0.15)', fg: '#f472b6' },
   { bg: 'rgba(168,85,247,0.15)', fg: '#c084fc' },
@@ -112,19 +113,17 @@ export default function FingerprintPage() {
 
   return (
     <>
-      <header className="px-4 sm:px-7 h-14 flex items-center justify-between border-b border-border bg-surface2 sticky top-0 z-9">
-        <div className="flex items-center gap-2 text-xs sm:text-[13px] text-text-3">
-          <div className="w-4 h-4 shrink-0 flex items-center justify-center"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-full h-full" width="16" height="16"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></div>
-          <span className="text-text-4 mx-0.5">/</span>
-          <span className="font-medium text-text-1">Registro de Huella Dactilar</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-[11px] text-text-3 bg-surface border border-border px-2.5 py-1.5 rounded-sm font-mono">
+      <ScreenHeader
+        title="Registro de huella"
+        subtitle="Alta y verificación de huellas dactilares"
+        wide
+        actions={
+          <span className="text-[11px] text-text-3 bg-surface  px-2.5 py-1.5 rounded-full font-mono">
             Lector: <span className="text-green-text">● Conectado</span>
           </span>
-        </div>
-      </header>
-      <div className="p-7 flex-1 flex flex-col gap-5">
+        }
+      />
+      <div className="px-4 sm:px-6 py-4 flex-1 flex flex-col gap-5 mx-auto w-full max-w-[1100px]">
         <style>{`@keyframes scanDown { 0%{top:5%} 100%{top:95%} }`}</style>
         <div>
           <div className="text-[22px] font-semibold tracking-tight">Registro de Huella Dactilar</div>
@@ -134,7 +133,7 @@ export default function FingerprintPage() {
         </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-5 items-start">
-        <div className="bg-surface border border-border rounded-[var(--radius)] overflow-hidden">
+        <div className="bg-surface  rounded-[var(--radius)] overflow-hidden">
           <div className="flex items-center justify-between px-5 py-3.5 border-b border-border">
             <div>
               <div className="text-[13px] font-semibold">Seleccionar miembro</div>
@@ -174,14 +173,14 @@ export default function FingerprintPage() {
 
         <div className="flex flex-col gap-4">
           {!selected ? (
-            <div className="bg-surface border border-border rounded-[var(--radius)] p-[60px] text-center">
+            <div className="bg-surface  rounded-[var(--radius)] p-[60px] text-center">
               <div className="text-4xl mb-3">👆</div>
               <div className="text-[15px] font-semibold mb-1.5">Selecciona un miembro</div>
               <div className="text-[13px] text-text-3">Elige un miembro de la lista para registrar o actualizar su huella dactilar.</div>
             </div>
           ) : (
             <>
-              <div className="bg-surface border border-border rounded-[var(--radius)] p-5 flex items-center gap-4">
+              <div className="bg-surface  rounded-[var(--radius)] p-5 flex items-center gap-4">
                 <div className="w-12 h-12 rounded-full flex items-center justify-center text-[17px] font-semibold shrink-0"
                   style={{ background: av?.bg, color: av?.fg }}>{selected.av}</div>
                 <div>
@@ -202,7 +201,7 @@ export default function FingerprintPage() {
               </div>
 
               {selected.hasHuella && (
-                <div className="flex items-start gap-[10px] px-3.5 py-3 rounded-[var(--radius-sm)] text-xs bg-amber-bg text-amber-text border border-[rgba(245,158,11,0.2)]">
+                <div className="flex items-start gap-[10px] px-3.5 py-3 rounded-2xl text-xs bg-amber-bg text-amber-text border border-[rgba(245,158,11,0.2)]">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14" className="shrink-0 mt-[1px]">
                     <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
                     <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
@@ -211,7 +210,7 @@ export default function FingerprintPage() {
                 </div>
               )}
 
-              <div className="bg-surface border border-border rounded-[var(--radius)] overflow-hidden">
+              <div className="bg-surface  rounded-[var(--radius)] overflow-hidden">
                 <div className="flex items-center justify-between px-5 py-3.5 border-b border-border">
                   <div>
                     <div className="text-[13px] font-semibold">Sensor de huella</div>
@@ -313,7 +312,7 @@ export default function FingerprintPage() {
                   <div className="flex gap-[10px] w-full">
                     <button onClick={startCapture}
                       disabled={sensorState === 'scanning'}
-                      className={`flex-1 inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-[var(--radius-sm)] text-[13px] font-medium cursor-pointer border-none font-inherit ${
+                      className={`flex-1 inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-2xl text-[13px] font-medium cursor-pointer border-none font-inherit ${
                         sensorState === 'scanning' ? 'opacity-40 cursor-not-allowed' : ''
                       }`}
                       style={{ background: 'var(--accent)', color: '#000' }}>
@@ -326,14 +325,14 @@ export default function FingerprintPage() {
                     </button>
                     {sensorState === 'scanning' && (
                       <button onClick={resetScanner}
-                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-[var(--radius-sm)] text-[13px] cursor-pointer bg-transparent text-text-2 border border-border2 font-inherit">
+                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-2xl text-[13px] cursor-pointer bg-transparent text-text-2 border border-border2 font-inherit">
                         Cancelar
                       </button>
                     )}
                   </div>
 
                   {sensorState === 'success' && (
-                    <div className="flex items-start gap-[10px] px-3.5 py-3 rounded-[var(--radius-sm)] text-xs w-full bg-green-bg text-green-text border border-[rgba(34,197,94,0.2)]">
+                    <div className="flex items-start gap-[10px] px-3.5 py-3 rounded-2xl text-xs w-full bg-green-bg text-green-text border border-[rgba(34,197,94,0.2)]">
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14" className="shrink-0 mt-[1px]">
                         <polyline points="20 6 9 17 4 12"/>
                       </svg>
@@ -348,7 +347,7 @@ export default function FingerprintPage() {
                 </div>
               </div>
 
-              <div className="flex items-start gap-[10px] px-3.5 py-3 rounded-[var(--radius-sm)] text-xs bg-[var(--blue-bg)] text-[var(--blue-text)] border border-[rgba(59,130,246,0.2)]">
+              <div className="flex items-start gap-[10px] px-3.5 py-3 rounded-2xl text-xs bg-[var(--teal-bg)] text-[var(--teal-text)] border border-[rgba(45,212,191,0.2)]">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14" className="shrink-0 mt-[1px]">
                   <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>
                 </svg>
@@ -362,7 +361,7 @@ export default function FingerprintPage() {
         </div>
       </div>
 
-      <div className="bg-surface border border-border rounded-[var(--radius)] overflow-hidden">
+      <div className="bg-surface  rounded-[var(--radius)] overflow-hidden">
         <div className="flex items-center justify-between px-5 py-3.5 border-b border-border">
           <div>
             <div className="text-[13px] font-semibold">Historial de registros</div>

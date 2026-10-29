@@ -30,6 +30,31 @@ export const checkInsService = {
     return (data || []) as CheckIn[]
   },
 
+  /** Total histórico de visitas (sin el límite de 50 de `getByMember`). */
+  countByMember: async (memberId: string): Promise<number> => {
+    const { count, error } = await supabase
+      .from('check_ins')
+      .select('id', { count: 'exact', head: true })
+      .eq('member_id', memberId)
+
+    if (error) throw error
+    return count ?? 0
+  },
+
+  /** Fechas de visita desde `sinceISO` (para el gráfico de actividad). */
+  getSinceByMember: async (memberId: string, sinceISO: string): Promise<string[]> => {
+    const { data, error } = await supabase
+      .from('check_ins')
+      .select('check_in_time')
+      .eq('member_id', memberId)
+      .gte('check_in_time', sinceISO)
+      .order('check_in_time', { ascending: true })
+      .limit(1000)
+
+    if (error) throw error
+    return (data || []).map((r: any) => r.check_in_time as string)
+  },
+
   create: async (input: {
     member_id: string
     membership_id?: string

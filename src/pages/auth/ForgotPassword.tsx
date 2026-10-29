@@ -29,7 +29,7 @@ export default function ForgotPasswordPage() {
 
   if (sentTo) {
     return (
-      <div className="bg-surface border border-border rounded p-8">
+      <div className="bg-surface  rounded-3xl p-8">
         <div className="mb-6">
           <div className="text-[18px] font-semibold">Revisa tu bandeja de entrada</div>
           <div className="text-[12px] text-text-3 mt-1">Restablecimiento de contraseña</div>
@@ -41,7 +41,7 @@ export default function ForgotPasswordPage() {
         </div>
         <div className="flex flex-col gap-3 mt-6">
           <Link to="/login"
-            className="w-full text-center py-[11px] rounded-sm border-none text-[14px] font-semibold cursor-pointer font-sans bg-accent text-black no-underline">
+            className="w-full text-center py-[11px] rounded-full border-none text-[14px] font-semibold cursor-pointer font-sans bg-accent text-accent-contrast no-underline">
             Volver a iniciar sesión
           </Link>
         </div>
@@ -50,7 +50,7 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <div className="bg-surface border border-border rounded p-8">
+    <div className="bg-surface  rounded-3xl p-8">
       <div className="mb-6">
         <div className="text-[18px] font-semibold">Recuperar contraseña</div>
         <div className="text-[12px] text-text-3 mt-1">Te enviaremos un enlace a tu correo</div>
@@ -60,11 +60,11 @@ export default function ForgotPasswordPage() {
         <div>
           <label className="block text-[12px] font-medium text-text-2 mb-1.5">Correo electrónico</label>
           <input type="email" placeholder="tu@correo.com" value={email} onChange={(e) => setEmail(e.target.value)}
-            className="w-full bg-bg border border-border text-text text-[13px] px-3.5 py-2.5 rounded-sm outline-none font-sans" />
+            className="w-full bg-surface border-none text-text text-[17px] px-4 py-4 rounded-2xl outline-none font-sans focus:ring-2 focus:ring-accent/40 placeholder:text-text-3" />
         </div>
         <button type="submit" disabled={submitting}
-          className={`w-full py-[11px] rounded-sm border-none text-[14px] font-semibold cursor-pointer font-sans mt-1
-            ${submitting ? 'bg-accent-dim text-black/60' : 'bg-accent text-black'}`}>
+          className={`w-full py-[11px] rounded-full border-none text-[14px] font-semibold cursor-pointer font-sans mt-1
+            ${submitting ? 'bg-accent-dim text-text-3' : 'bg-accent text-accent-contrast'}`}>
           {submitting ? 'Enviando...' : 'Enviar enlace'}
         </button>
       </form>

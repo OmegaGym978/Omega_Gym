@@ -8,6 +8,7 @@ import { LoadingSpinner } from '@/components/ui/atoms/LoadingSpinner'
 import { MetricCard } from '@/components/ui/atoms/MetricCard'
 import { Modal } from '@/components/ui/molecules/Modal'
 import { TabBar } from '@/components/ui/molecules/TabBar'
+import { ScreenHeader } from '@/components/ui/layout/ScreenHeader'
 import { fmtDate, fmtMoney } from '@/lib/helpers'
 
 const METHOD_LABEL: Record<string, string> = { cash: 'Efectivo', card: 'Tarjeta', transfer: 'Transferencia' }
@@ -78,17 +79,10 @@ export default function MyMembershipPage() {
   const lastPayment = payments.find(p => p.status === 'paid') || payments[0]
 
   return (<>
-      <header className="px-4 sm:px-7 h-14 flex items-center justify-between border-b border-border bg-surface2 sticky top-0 z-9">
-        <div className="flex items-center gap-2 text-xs sm:text-[13px] text-text-3">
-          <div className="w-4 h-4 shrink-0 flex items-center justify-center">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-full h-full" width="16" height="16">
-              <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>
-            </svg>
-          </div>
-          <span className="text-text-4 mx-0.5">/</span>
-          <span className="font-medium text-text-1 truncate">Membresía<span className="hidden sm:inline"> y pagos</span></span>
-        </div>
-        <div className="shrink-0 animate-slide-up">
+      <ScreenHeader
+        title="Mi membresía"
+        subtitle="Estado y pagos"
+        actions={
           <TabBar
             tabs={[
               { key: 'membresia', label: 'Mi membresía' },
@@ -97,13 +91,13 @@ export default function MyMembershipPage() {
             active={tab}
             onChange={setTab}
           />
-        </div>
-      </header>
-    <div className="p-4 sm:p-7 flex-1">
+        }
+      />
+    <div className="px-4 sm:px-5 py-4 flex-1 mx-auto w-full max-w-[560px]">
 
       {/* ==================== TAB: MI MEMBRESÍA ==================== */}
       {tab === 'membresia' && (!membership ? (
-        <div className={`bg-surface border border-border rounded-xl p-10 flex flex-col items-center gap-4 text-center animate-slide-up ${staggerClass(1)}`}>
+        <div className={`bg-surface  rounded-2xl p-10 flex flex-col items-center gap-4 text-center animate-slide-up ${staggerClass(1)}`}>
           <div className="w-14 h-14 rounded-full flex items-center justify-center" style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444' }}>
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="12" cy="12" r="10"/><path d="M16 16s-1.5-2-4-2-4 2-4 2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
           </div>
@@ -113,10 +107,10 @@ export default function MyMembershipPage() {
           </div>
         </div>
       ) : (
-        <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[1fr_320px] lg:gap-4">
+        <div className="flex flex-col gap-4">
           <div className={`flex flex-col gap-4 animate-slide-up ${staggerClass(1)}`}>
             {daysRemaining <= 7 && (
-              <div className="bg-[#2a1f00] border border-[#5a3e00] rounded-xl p-3.5 flex items-start gap-2.5">
+              <div className="bg-[#2a1f00] border border-[#5a3e00] rounded-2xl p-3.5 flex items-start gap-2.5">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#facc15" strokeWidth="2" strokeLinecap="round" className="shrink-0 mt-0.5">
                   <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
                 </svg>
@@ -127,7 +121,7 @@ export default function MyMembershipPage() {
               </div>
             )}
 
-            <div className="bg-surface border border-border rounded-xl p-5 relative overflow-hidden">
+            <div className="bg-surface  rounded-2xl p-5 relative overflow-hidden">
               <div className="absolute -top-10 -right-10 w-[120px] h-[120px] rounded-full pointer-events-none"
                 style={{ background: 'radial-gradient(circle, var(--accent), transparent 70%)', opacity: 0.06 }} />
               <div className="absolute -bottom-12 left-8 w-[140px] h-[140px] rounded-full pointer-events-none"
@@ -162,7 +156,7 @@ export default function MyMembershipPage() {
               </div>
             </div>
 
-            <div className="bg-surface border border-border rounded-xl p-4">
+            <div className="bg-surface  rounded-2xl p-4">
               <div className="text-[11px] font-medium text-text-3 uppercase tracking-[0.4px] mb-3">Detalles</div>
               <div className="divide-y divide-[#222]">
                 <div className="flex justify-between items-center py-2">
@@ -191,7 +185,7 @@ export default function MyMembershipPage() {
           </div>
 
           {history.length > 1 && (
-            <div className={`bg-surface border border-border rounded-xl overflow-hidden animate-slide-up ${staggerClass(2)}`}>
+            <div className={`bg-surface  rounded-2xl overflow-hidden animate-slide-up ${staggerClass(2)}`}>
               <div className="px-5 py-4 border-b border-border">
                 <div className="text-[11px] font-medium text-text-3 uppercase tracking-[0.4px]">Historial</div>
               </div>
@@ -215,7 +209,7 @@ export default function MyMembershipPage() {
 
       {/* ==================== TAB: PAGOS ==================== */}
       {tab === 'pagos' && (payments.length === 0 ? (
-        <div className={`bg-surface border border-border rounded-xl p-10 flex flex-col items-center gap-4 text-center animate-slide-up ${staggerClass(1)}`}>
+        <div className={`bg-surface  rounded-2xl p-10 flex flex-col items-center gap-4 text-center animate-slide-up ${staggerClass(1)}`}>
           <div className="w-14 h-14 rounded-full flex items-center justify-center" style={{ background: 'rgba(245,158,11,0.12)', color: '#f59e0b' }}>
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="12" cy="12" r="10"/><path d="M16 16s-1.5-2-4-2-4 2-4 2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
           </div>
@@ -232,7 +226,7 @@ export default function MyMembershipPage() {
           </div>
 
           {lastPayment && (
-            <div className={`bg-surface border border-border rounded-xl p-4 mb-4 animate-slide-up ${staggerClass(2)}`}>
+            <div className={`bg-surface  rounded-2xl p-4 mb-4 animate-slide-up ${staggerClass(2)}`}>
               <div className="text-[11px] font-medium text-text-3 uppercase tracking-[0.4px] mb-3">Último pago</div>
               <div className="divide-y divide-[#222]">
                 <div className="flex justify-between items-center py-2">
@@ -269,12 +263,12 @@ export default function MyMembershipPage() {
             </div>
           )}
 
-          <div className={`bg-surface border border-border rounded-xl p-4 animate-slide-up ${staggerClass(3)}`}>
+          <div className={`bg-surface  rounded-2xl p-4 animate-slide-up ${staggerClass(3)}`}>
             <div className="text-[11px] font-medium text-text-3 uppercase tracking-[0.4px] mb-3">Historial completo</div>
             {payments.map((p, i) => (
               <div key={p.id}
                 onClick={() => setReceipt(p)}
-                className={`flex items-center justify-between py-2.5 cursor-pointer hover:bg-surface2 transition-colors rounded-sm ${i < payments.length - 1 ? 'border-b border-[#222]' : ''}`}>
+                className={`flex items-center justify-between py-2.5 cursor-pointer bg-surface2 transition-colors rounded-2xl ${i < payments.length - 1 ? 'border-b border-[#222]' : ''}`}>
                 <div className="min-w-0">
                   <div className="text-[13px] font-medium truncate">{p.concept || 'Membresía'} · {fmtDate(p.payment_date).split(' ')[1] || ''} {fmtDate(p.payment_date).split(' ')[2] || ''}</div>
                   <div className="text-[11px] text-text-3 mt-0.5">{fmtDate(p.payment_date)} · {METHOD_LABEL[p.method] || p.method}</div>

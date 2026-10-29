@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase'
+import { isMissingColumnError } from '@/lib/supabase-errors'
 
 function escapeSearch(s: string): string {
   return s.replace(/[%_\\]/g, '\\$&')
@@ -12,6 +13,8 @@ export interface TrainingPlan {
   created_by: string
   created_at: string
   updated_at: string
+  /** Días programados (0=lunes … 6=domingo). NULL/vacío = sin programar. */
+  scheduled_days: number[] | null
 }
 
 export interface PlanExercise {
@@ -26,8 +29,15 @@ export interface PlanExercise {
   day: number | null
   notes: string | null
   reference_link: string | null
+  /** Series planificadas (peso/reps). NULL en rutinas anteriores al cambio. */
+  set_details: PlanSet[] | null
   order_index: number
   created_at: string
+}
+
+export type PlanSet = {
+  weight: number | null
+  reps: number | null
 }
 
 export type ExerciseInput = {
@@ -39,7 +49,9 @@ export type ExerciseInput = {
   rest_seconds?: number | null
   notes?: string | null
   reference_link?: string | null
-  day: number
+  /** Columna legacy: ya no se usa para repartir por días. Se escribe siempre `null`. */
+  day?: number | null
+  set_details?: PlanSet[] | null
   order_index: number
 }
 
@@ -55,7 +67,7 @@ export interface PlanListItem {
   member_count: number
   assigned_to: string | null
   exercise_count: number
-  days: number
+  scheduled_days: number[] | null
   created_at: string
 }
 
@@ -67,6 +79,13 @@ export interface PlanFilters {
 }
 
 export const trainingService = {
+  /**
+   * Listado para el panel de staff (admin/entrenador).
+   * Solo planes `kind='trainer'`: las rutinas personales de los miembros
+   * no deben aparecer aquí (SPEC_001 regla 5 / TKT-OMEGYM-027).
+   * La RLS (training_plans_select) ya las bloquea; el filtro es defensa
+   * en profundidad y evita depender solo de la política.
+   */
   getAll: async (filters?: PlanFilters): Promise<{ data: PlanListItem[]; count: number }> => {
     let query = supabase
       .from('training_plans')
@@ -76,6 +95,7 @@ export const trainingService = {
         assignee:profiles!training_plans_assigned_to_fkey(full_name),
         plan_exercises(count)
       `, { count: 'exact' })
+      .eq('kind', 'trainer')
 
     if (filters?.search) {
       const escaped = escapeSearch(filters.search)
@@ -134,7 +154,7 @@ export const trainingService = {
           member_count: memberIds.length,
           assigned_to: p.assigned_to ?? null,
           exercise_count: p.plan_exercises?.[0]?.count ?? 0,
-          days: 0,
+          scheduled_days: p.scheduled_days ?? null,
           created_at: p.created_at,
         }
       }),
@@ -160,7 +180,6 @@ export const trainingService = {
         .from('plan_exercises')
         .select('*')
         .eq('plan_id', id)
-        .order('day', { ascending: true, nullsFirst: false })
         .order('order_index'),
       supabase
         .from('plan_assignments')
@@ -183,21 +202,24 @@ export const trainingService = {
     created_by: string
     assigned_to?: string
     kind?: 'trainer' | 'personal'
+    scheduled_days?: number[] | null
   }) => {
-    const { data, error } = await supabase
-      .from('training_plans')
-      .insert({
-        name: input.name,
-        description: input.description || null,
-        created_by: input.created_by,
-        assigned_to: input.assigned_to || null,
-        kind: input.kind || 'trainer',
-      })
-      .select()
-      .single()
+    const basePayload = {
+      name: input.name,
+      description: input.description || null,
+      created_by: input.created_by,
+      assigned_to: input.assigned_to || null,
+      kind: input.kind || 'trainer',
+    }
+    const payload = { ...basePayload, scheduled_days: input.scheduled_days ?? null }
 
-    if (error) throw error
-    return data as TrainingPlan
+    let result = await supabase.from('training_plans').insert(payload).select().single()
+    if (result.error && isMissingColumnError(result.error, 'scheduled_days')) {
+      // Migración pendiente en el entorno: se crea sin programación.
+      result = await supabase.from('training_plans').insert(basePayload).select().single()
+    }
+    if (result.error) throw result.error
+    return result.data as TrainingPlan
   },
 
   delete: async (id: string): Promise<void> => {
@@ -220,11 +242,13 @@ export const trainingService = {
     name?: string
     description?: string | null
     assigned_to?: string | null
+    scheduled_days?: number[] | null
   }) => {
     const payload: Record<string, unknown> = {}
     if (input.name !== undefined) payload.name = input.name
     if (input.description !== undefined) payload.description = input.description
     if (input.assigned_to !== undefined) payload.assigned_to = input.assigned_to || null
+    if (input.scheduled_days !== undefined) payload.scheduled_days = input.scheduled_days
 
     const { data, error } = await supabase
       .from('training_plans')
@@ -240,37 +264,51 @@ export const trainingService = {
   duplicate: async (id: string): Promise<string> => {
     const plan = await trainingService.getById(id)
 
-    const { data: newPlan, error } = await supabase
-      .from('training_plans')
-      .insert({
-        name: plan.name + ' (copia)',
-        description: plan.description,
-        created_by: plan.created_by,
-        assigned_to: null,
-      })
-      .select()
-      .single()
+    const basePayload = {
+      name: plan.name + ' (copia)',
+      description: plan.description,
+      created_by: plan.created_by,
+      assigned_to: null,
+      // Una copia del staff siempre es un plan de entrenamiento
+      kind: 'trainer' as const,
+    }
+    const payload = { ...basePayload, scheduled_days: plan.scheduled_days ?? null }
 
-    if (error) throw error
+    let planResult = await supabase.from('training_plans').insert(payload).select().single()
+    if (planResult.error && isMissingColumnError(planResult.error, 'scheduled_days')) {
+      planResult = await supabase.from('training_plans').insert(basePayload).select().single()
+    }
+    if (planResult.error) throw planResult.error
+    const newPlan = planResult.data
 
     if (plan.exercises && plan.exercises.length > 0) {
-      const { error: exError } = await supabase
-        .from('plan_exercises')
-        .insert(plan.exercises.map((ex: PlanExercise) => ({
-          plan_id: newPlan.id,
-          exercise_id: ex.exercise_id || null,
-          exercise_name: ex.exercise_name,
-          muscle: ex.muscle,
-          sets: ex.sets,
-          reps: ex.reps,
-          rest_seconds: ex.rest_seconds,
-          notes: ex.notes,
-          reference_link: ex.reference_link,
-          day: ex.day,
-          order_index: ex.order_index,
-        })))
+      const rows = (plan.exercises as PlanExercise[]).map(ex => ({
+        plan_id: newPlan.id,
+        exercise_id: ex.exercise_id || null,
+        exercise_name: ex.exercise_name,
+        muscle: ex.muscle,
+        sets: ex.sets,
+        reps: ex.reps,
+        rest_seconds: ex.rest_seconds,
+        notes: ex.notes,
+        reference_link: ex.reference_link,
+        day: ex.day,
+        set_details: ex.set_details ?? null,
+        order_index: ex.order_index,
+      }))
 
-      if (exError) throw exError
+      const { error: exError } = await supabase.from('plan_exercises').insert(rows)
+      if (exError) {
+        if (!isMissingColumnError(exError, 'set_details')) throw exError
+        // Migración pendiente: la copia se hace sin series detalladas.
+        const legacy = rows.map(row => {
+          const copy = { ...row }
+          delete (copy as { set_details?: unknown }).set_details
+          return copy
+        })
+        const retry = await supabase.from('plan_exercises').insert(legacy)
+        if (retry.error) throw retry.error
+      }
     }
 
     return newPlan.id
@@ -387,6 +425,17 @@ export const trainingService = {
     if (error) throw error
   },
 
+  /** Programa los días de la semana de un plan (0=lunes … 6=domingo). */
+  setSchedule: async (planId: string, days: number[]): Promise<void> => {
+    const normalized = [...new Set(days.filter(d => d >= 0 && d <= 6))].sort((a, b) => a - b)
+    const { error } = await supabase
+      .from('training_plans')
+      .update({ scheduled_days: normalized.length > 0 ? normalized : null })
+      .eq('id', planId)
+
+    if (error) throw error
+  },
+
   // ---- Exercises ----
 
   getExercises: async (planId: string): Promise<PlanExercise[]> => {
@@ -394,7 +443,6 @@ export const trainingService = {
       .from('plan_exercises')
       .select('*')
       .eq('plan_id', planId)
-      .order('day', { ascending: true, nullsFirst: false })
       .order('order_index')
 
     if (error) throw error
@@ -410,22 +458,32 @@ export const trainingService = {
     if (delError) throw delError
     if (exercises.length === 0) return
 
-    const { error } = await supabase
-      .from('plan_exercises')
-      .insert(exercises.map((ex, i) => ({
-        plan_id: planId,
-        exercise_id: ex.exercise_id || null,
-        exercise_name: ex.exercise_name,
-        muscle: ex.muscle || null,
-        sets: ex.sets || null,
-        reps: ex.reps || null,
-        rest_seconds: ex.rest_seconds || null,
-        notes: ex.notes || null,
-        reference_link: ex.reference_link || null,
-        day: ex.day,
-        order_index: ex.order_index ?? i,
-      })))
+    const rows = exercises.map((ex, i) => ({
+      plan_id: planId,
+      exercise_id: ex.exercise_id || null,
+      exercise_name: ex.exercise_name,
+      muscle: ex.muscle || null,
+      sets: ex.sets || null,
+      reps: ex.reps || null,
+      rest_seconds: ex.rest_seconds || null,
+      notes: ex.notes || null,
+      reference_link: ex.reference_link || null,
+      day: ex.day ?? null,
+      set_details: ex.set_details ?? null,
+      order_index: ex.order_index ?? i,
+    }))
 
-    if (error) throw error
+    const { error } = await supabase.from('plan_exercises').insert(rows)
+    if (error) {
+      if (!isMissingColumnError(error, 'set_details')) throw error
+      // Migración pendiente: se guardan los agregados sin series detalladas.
+      const legacy = rows.map(row => {
+        const copy = { ...row }
+        delete (copy as { set_details?: unknown }).set_details
+        return copy
+      })
+      const retry = await supabase.from('plan_exercises').insert(legacy)
+      if (retry.error) throw retry.error
+    }
   },
 }

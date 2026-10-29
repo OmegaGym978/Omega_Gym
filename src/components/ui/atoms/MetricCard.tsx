@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 
 interface MetricCardProps {
   icon?: ReactNode;
@@ -7,7 +7,7 @@ interface MetricCardProps {
   sub?: string;
   delta?: string;
   deltaType?: 'up' | 'down' | 'neutral';
-  color?: 'green' | 'amber' | 'red' | 'accent' | 'blue' | 'gray';
+  color?: 'green' | 'amber' | 'red' | 'accent' | 'teal' | 'gray';
   children?: ReactNode;
   className?: string;
 }
@@ -16,9 +16,9 @@ const colorMap: Record<string, { bar: string; bg: string; text: string; value: s
   green: { bar: 'bg-green', bg: 'bg-green-bg', text: 'text-green-text', value: 'text-green-text', glow: 'rgba(34,197,94,0.15)' },
   amber: { bar: 'bg-amber', bg: 'bg-amber-bg', text: 'text-amber-text', value: 'text-amber-text', glow: 'rgba(245,158,11,0.15)' },
   red: { bar: 'bg-red', bg: 'bg-red-bg', text: 'text-red-text', value: 'text-red-text', glow: 'rgba(239,68,68,0.15)' },
-  accent: { bar: 'bg-accent', bg: 'bg-accent-dim', text: 'text-accent', value: 'text-accent', glow: 'rgba(232,93,93,0.15)' },
-  blue: { bar: 'bg-[#3b82f6]', bg: 'bg-blue-bg', text: 'text-blue-text', value: 'text-[#60a5fa]', glow: 'rgba(59,130,246,0.15)' },
-  gray: { bar: 'bg-surface2', bg: 'bg-gray-bg', text: 'text-gray-text', value: 'text-text-2', glow: 'rgba(255,255,255,0.05)' },
+  accent: { bar: 'bg-accent', bg: 'bg-accent-dim', text: 'text-accent', value: 'text-accent', glow: 'rgba(var(--accent-rgb),0.15)' },
+  teal: { bar: 'bg-teal', bg: 'bg-teal-bg', text: 'text-teal-text', value: 'text-teal-text', glow: 'rgba(45,212,191,0.15)' },
+  gray: { bar: 'bg-surface3', bg: 'bg-gray-bg', text: 'text-gray-text', value: 'text-text-2', glow: 'rgba(255,255,255,0.05)' },
 };
 
 function ArrowUp() {
@@ -44,11 +44,11 @@ export function MetricCard({
   sub,
   delta,
   deltaType = 'up',
-  color = 'blue',
+  color = 'accent',
   children,
   className = '',
 }: MetricCardProps) {
-  const c = colorMap[color] || colorMap.blue;
+  const c = colorMap[color] || colorMap.accent;
 
   const deltaColors: Record<string, string> = {
     up: 'bg-green-bg text-green-text',
@@ -58,17 +58,17 @@ export function MetricCard({
 
   return (
     <div
-      className={`metric-card-hover relative bg-surface border border-border rounded overflow-hidden p-3 sm:p-4 shrink-0 min-w-[140px] sm:min-w-0 ${className}`}
-      style={{ '--glow-color': c.glow } as React.CSSProperties}
+      className={`metric-card-hover relative bg-surface  rounded-2xl overflow-hidden p-4 shrink-0 min-w-[140px] sm:min-w-0 ${className}`}
+      style={{ '--glow-color': c.glow } as CSSProperties}
     >
-      <div className={`absolute top-0 left-0 right-0 h-0.5 ${c.bar}`} />
+      <div className={`absolute top-0 left-0 right-0 h-1 ${c.bar} opacity-80`} />
       {icon && (
-        <div className="flex items-start justify-between mb-2 sm:mb-3">
-           <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center ${c.bg} ${c.text}`}>
+        <div className="flex items-start justify-between mb-3">
+          <div className={`w-10 h-10 rounded-full flex items-center justify-center ${c.bg} ${c.text}`}>
             <div className="w-[18px] h-[18px]">{icon}</div>
           </div>
           {delta && (
-            <span className={`hidden sm:flex items-center gap-1 text-[11px] font-medium px-2 py-[3px] rounded-full ${deltaColors[deltaType]}`}>
+            <span className={`flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded-full ${deltaColors[deltaType]}`}>
               {deltaType === 'up' ? <ArrowUp /> : deltaType === 'down' ? <ArrowDown /> : null}
               {delta}
             </span>
@@ -78,13 +78,13 @@ export function MetricCard({
       {children ? (
         children
       ) : (
-        <div className={`text-xl sm:text-[28px] font-semibold leading-none tracking-tight font-mono ${c.value}`}>
+        <div className={`text-[26px] font-semibold leading-none tracking-tight font-mono ${c.value}`}>
           {value}
         </div>
       )}
-      <div className="text-[11px] sm:text-[12px] text-text-3 mt-1 sm:mt-1.5">{label}</div>
+      <div className="text-[11px] text-text-3 mt-1.5">{label}</div>
       {sub && (
-        <div className="text-[10px] sm:text-[11px] text-text-3 mt-1 sm:mt-2">{sub}</div>
+        <div className="text-[10px] text-text-3 mt-2">{sub}</div>
       )}
     </div>
   );

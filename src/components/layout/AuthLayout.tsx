@@ -8,9 +8,9 @@ export function AuthLayout() {
   const { theme, toggle } = useThemeStore()
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-bg relative overflow-hidden">
+    <div className="min-h-dvh flex items-center justify-center bg-bg relative overflow-hidden px-4">
       <button onClick={toggle}
-        className="fixed top-4 right-4 z-50 w-9 h-9 rounded-sm border border-border bg-surface flex items-center justify-center cursor-pointer text-text hover:bg-surface2 transition-colors"
+        className="fixed top-4 right-4 z-50 w-9 h-9 rounded-full border border-border bg-surface flex items-center justify-center cursor-pointer text-text transition-colors"
         aria-label="Cambiar tema"
       >
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
@@ -24,7 +24,7 @@ export function AuthLayout() {
       <div className="w-[400px] max-w-[92vw]">
         <div className="text-center mb-8">
           <div className="flex flex-col items-center gap-3">
-            <div className="w-[52px] h-[52px] rounded-xl flex items-center justify-center"
+            <div className="w-[52px] h-[52px] rounded-3xl flex items-center justify-center"
               style={{ background: 'var(--logo-bg)', border: '1.5px solid var(--logo-border)' }}>
               <svg viewBox="0 0 24 24" fill="none" width="28" height="28">
                 <text x="12" y="19" fontFamily="serif" fontSize="20" fontWeight="bold" style={{ fill: 'var(--logo-omega)' }} textAnchor="middle">Ω</text>

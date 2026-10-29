@@ -4,6 +4,7 @@
     "SPECIFICATION.md",
     "README.md",
     "supabase/config.toml",
-    "data/supabase/DATABASE_CONFIG.yaml"
+    "data/supabase/DATABASE_CONFIG.yaml",
+    "openspec/config.yaml"
   ]
 }
