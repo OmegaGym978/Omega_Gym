@@ -197,7 +197,7 @@ export default function CheckInKioskPage() {
       {/* Top bar */}
       <div className="flex items-center justify-between px-8 py-[18px] border-b border-border bg-surface">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg flex items-center justify-center"
+          <div className="w-9 h-9 rounded-2xl flex items-center justify-center"
             style={{ background: 'var(--logo-bg)', border: '1px solid var(--logo-border)' }}>
             <svg viewBox="0 0 24 24" fill="none" width="18" height="18">
               <text x="12" y="18" fontFamily="serif" fontSize="18" fontWeight="bold" style={{ fill: 'var(--logo-omega)' }} textAnchor="middle">Ω</text>
@@ -333,7 +333,7 @@ export default function CheckInKioskPage() {
               </div>
             )
           ) : (
-            <div className="bg-surface border border-border rounded-[var(--radius)] p-7 flex flex-col items-center text-center gap-4 min-h-[280px] justify-center">
+            <div className="bg-surface  rounded-[var(--radius)] p-7 flex flex-col items-center text-center gap-4 min-h-[280px] justify-center">
               <div className="text-4xl mb-1">{'\uD83C\uDFCB'}</div>
               <div className="text-base font-semibold text-text-2">Esperando identificaci\u00f3n</div>
               <div className="text-[13px] text-text-3 leading-[1.5]">Acerca tu dedo al lector de huella para registrar tu entrada o salida del gym.</div>
@@ -341,7 +341,7 @@ export default function CheckInKioskPage() {
           )}
 
           {/* Recent */}
-          <div className="bg-surface border border-border rounded-[var(--radius)] overflow-hidden">
+          <div className="bg-surface  rounded-[var(--radius)] overflow-hidden">
             <div className="flex justify-between items-center px-[18px] py-3 border-b border-border text-xs text-text-3">
               <span>Entradas recientes de hoy</span>
               <span className="text-green-text font-medium">{recent.length}</span>

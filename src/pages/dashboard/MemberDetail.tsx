@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/atoms/Button';
 import { Badge } from '@/components/ui/atoms/Badge';
 import { LoadingSpinner } from '@/components/ui/atoms/LoadingSpinner';
 import { Modal } from '@/components/ui/molecules/Modal';
+import { ScreenHeader } from '@/components/ui/layout/ScreenHeader';
 import { ResponsiveTable, type Column } from '@/components/ui/molecules/ResponsiveTable';
 import { initials, fmtDate, fmtMoney, fmtPhone, daysDiff, avatarIndex, AVATAR_COLORS } from '@/lib/helpers';
 import { IconEdit, IconCalendar } from '@/lib/icons';
@@ -25,7 +26,7 @@ const TABS: { key: TabKey; label: string }[] = [
 ];
 
 const PAYMENT_METHOD_LABELS: Record<string, string> = { cash: 'Efectivo', card: 'Tarjeta', transfer: 'Transferencia' };
-const PAYMENT_METHOD_COLORS: Record<string, string> = { cash: 'var(--green-text)', card: 'var(--blue-text)', transfer: 'var(--amber-text)' };
+const PAYMENT_METHOD_COLORS: Record<string, string> = { cash: 'var(--green-text)', card: 'var(--teal-text)', transfer: 'var(--amber-text)' };
 
 export default function MemberDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -252,25 +253,16 @@ export default function MemberDetailPage() {
 
   function roleBadge(role: string) {
     if (role === 'admin') return <Badge variant="accent" dot>Admin</Badge>;
-    if (role === 'trainer') return <Badge variant="blue" dot>Entrenador</Badge>;
+    if (role === 'trainer') return <Badge variant="teal" dot>Entrenador</Badge>;
     return <Badge variant="gray" dot>Miembro</Badge>;
   }
 
   return (
     <>
-      <header className="px-4 sm:px-7 h-14 flex items-center justify-between border-b border-border bg-surface2 sticky top-0 z-9">
-        <div className="flex items-center gap-2 text-xs sm:text-[13px] text-text-3">
-          <div className="w-4 h-4 shrink-0 flex items-center justify-center"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-full h-full" width="16" height="16"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></div>
-          <span className="text-text-4 mx-0.5">/</span>
-          <button onClick={() => navigate('/members')} className="text-text-3 hover:text-text-1 transition-colors">Miembros</button>
-          <span className="text-text-4 mx-0.5">/</span>
-          <span className="font-medium text-text-1">{m.full_name}</span>
-        </div>
+      <ScreenHeader title={m.full_name} subtitle="Detalle del miembro" back="/members" wide />
 
-      </header>
-
-      <div className="p-4 sm:p-7 flex-1">
-        <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-surface to-surface2 border border-border p-6 sm:p-8 mb-8">
+      <div className="px-4 sm:px-6 py-4 flex-1 mx-auto w-full max-w-[1100px]">
+        <div className="relative overflow-hidden rounded-3xl bg-surface  p-6 sm:p-8 mb-8">
           <div className="absolute inset-0 opacity-[0.06]"
             style={{ background: 'radial-gradient(600px circle at 30% 40%, var(--accent), transparent)' }} />
           <div className="relative flex items-center gap-5">
@@ -301,7 +293,7 @@ export default function MemberDetailPage() {
               className={`tab-underline px-4 sm:px-5 py-3 text-[12px] font-medium whitespace-nowrap cursor-pointer ${
                 activeTab === tab.key
                   ? 'active text-text'
-                  : 'text-text-3 hover:text-text-2'
+                  : 'text-text-3 text-text-2'
               }`}
             >
               {tab.label}
@@ -316,9 +308,9 @@ export default function MemberDetailPage() {
                 { label: 'Antigüedad', value: `${daysDiff(m.created_at) ?? 0} días`, color: 'accent', sub: 'Miembro desde ' + fmtDate(m.created_at) },
                 { label: 'Membresía', value: activeMembership ? 'Activa' : 'Sin membresía', color: activeMembership ? 'green' : 'red', sub: activeMembership ? `Vence ${fmtDate(activeMembership.end_date)}` : 'Sin membresía activa' },
                 { label: 'Pagos', value: payments.length, color: 'green', sub: `Total: ${fmtMoney(totalPaid)}` },
-                { label: 'Check-ins', value: thisMonthCheckins, color: 'blue', sub: 'Este mes' },
+                { label: 'Check-ins', value: thisMonthCheckins, color: 'teal', sub: 'Este mes' },
               ].map((item, i) => (
-                <div key={item.label} className={`relative bg-surface border border-border rounded overflow-hidden p-[18px] animate-slide-up stagger-${i + 1} card-hover-lift`}>
+                <div key={item.label} className={`relative bg-surface  rounded overflow-hidden p-[18px] animate-slide-up stagger-${i + 1} card-hover-lift`}>
                   <div className="absolute top-0 left-0 right-0 h-0.5" style={{ background: `var(--${item.color})` }} />
                   <div className="text-[11px] text-text-3 uppercase tracking-[0.06em] mb-2.5">{item.label}</div>
                   <div className="text-[26px] font-semibold leading-none -tracking-[0.03em]" style={{ color: `var(--${item.color}-text)` }}>{item.value}</div>
@@ -328,7 +320,7 @@ export default function MemberDetailPage() {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              <div className="bg-surface border border-border rounded p-5 animate-slide-up stagger-5 card-hover-lift">
+              <div className="bg-surface  rounded p-5 animate-slide-up stagger-5 card-hover-lift">
                 <h3 className="text-[11px] text-text-3 uppercase tracking-[0.08em] mb-4 flex items-center gap-2">
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--accent-text)" strokeWidth="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
                   Información de contacto</h3>
@@ -371,7 +363,7 @@ export default function MemberDetailPage() {
                 </div>
               </div>
 
-              <div className="bg-surface border border-border rounded p-5 animate-slide-up stagger-6 card-hover-lift">
+              <div className="bg-surface  rounded p-5 animate-slide-up stagger-6 card-hover-lift">
                 <h3 className="text-[11px] text-text-3 uppercase tracking-[0.08em] mb-4 flex items-center gap-2">
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--green-text)" strokeWidth="2"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>
                   Membresía activa</h3>
@@ -422,7 +414,7 @@ export default function MemberDetailPage() {
                 )}
               </div>
 
-              <div className="bg-surface border border-border rounded p-5 animate-slide-up stagger-7 card-hover-lift">
+              <div className="bg-surface  rounded p-5 animate-slide-up stagger-7 card-hover-lift">
                 <h3 className="text-[11px] text-text-3 uppercase tracking-[0.08em] mb-4 flex items-center gap-2">
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--purple-text)" strokeWidth="2" style={{color:'var(--purple-text)'}}><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
                   Plan de entrenamiento</h3>
@@ -431,7 +423,7 @@ export default function MemberDetailPage() {
                     <div className="flex flex-wrap items-center gap-2 mb-2">
                       <span className="text-[15px] font-medium">{m.plan_names[0]}</span>
                       {m.plan_names.length > 1 && (
-                        <span className="inline-flex items-center px-[6px] py-[1px] rounded-sm text-[10px] font-semibold bg-accent-dim text-accent border border-accent/30">+{m.plan_names.length - 1}</span>
+                        <span className="inline-flex items-center px-[6px] py-[1px] rounded-full text-[10px] font-semibold bg-accent-dim text-accent border border-accent/30">+{m.plan_names.length - 1}</span>
                       )}
                     </div>
                     <div className="text-[11px] text-text-3">
@@ -453,9 +445,9 @@ export default function MemberDetailPage() {
                 )}
               </div>
 
-              <div className="bg-surface border border-border rounded p-5 animate-slide-up stagger-8 card-hover-lift">
+              <div className="bg-surface  rounded p-5 animate-slide-up stagger-8 card-hover-lift">
                 <h3 className="text-[11px] text-text-3 uppercase tracking-[0.08em] mb-4 flex items-center gap-2">
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--blue-text)" strokeWidth="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--teal-text)" strokeWidth="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
                   Actividad reciente</h3>
                 {checkIns.length > 0 ? (
                   <div className="space-y-2.5">
@@ -471,7 +463,7 @@ export default function MemberDetailPage() {
                       </div>
                     ))}
                     {checkIns.length > 5 && (
-                      <button onClick={() => setActiveTab('checkins')} className="text-[11px] text-accent mt-1 hover:underline cursor-pointer">
+                      <button onClick={() => setActiveTab('checkins')} className="text-[11px] text-accent mt-1 cursor-pointer">
                         Ver todos ({checkIns.length})
                       </button>
                     )}
@@ -508,7 +500,7 @@ export default function MemberDetailPage() {
                 <span className="text-[12px] mt-1">Este miembro no tiene historial de membresías.</span>
               </div>
             ) : (
-              <div className="bg-surface border border-border rounded overflow-hidden">
+              <div className="bg-surface  rounded overflow-hidden">
                 <ResponsiveTable
                   columns={membershipColumns}
                   data={memberships}
@@ -538,9 +530,9 @@ export default function MemberDetailPage() {
                   {[
                     { label: 'Total pagado', value: fmtMoney(totalPaid), color: 'green', sub: `${payments.filter((p) => p.status === 'paid').length} pagos` },
                     { label: 'Pendiente', value: fmtMoney(totalPending), color: 'amber', sub: `${payments.filter((p) => p.status === 'pending').length} pagos` },
-                    { label: 'Último pago', value: lastPayment ? fmtDate(lastPayment.payment_date) : '—', color: 'blue', sub: lastPayment ? fmtMoney(lastPayment.amount) : 'Sin pagos' },
+                    { label: 'Último pago', value: lastPayment ? fmtDate(lastPayment.payment_date) : '—', color: 'teal', sub: lastPayment ? fmtMoney(lastPayment.amount) : 'Sin pagos' },
                   ].map((m) => (
-                    <div key={m.label} className="relative bg-surface border border-border rounded overflow-hidden p-[18px]">
+                    <div key={m.label} className="relative bg-surface  rounded overflow-hidden p-[18px]">
                       <div className="absolute top-0 left-0 right-0 h-0.5" style={{ background: `var(--${m.color})` }} />
                       <div className="text-[11px] text-text-3 uppercase tracking-[0.06em] mb-2.5">{m.label}</div>
                       <div className="text-[22px] font-semibold leading-none -tracking-[0.03em]" style={{ color: `var(--${m.color}-text)` }}>{m.value}</div>
@@ -559,7 +551,7 @@ export default function MemberDetailPage() {
                     <span className="text-[12px] mt-1">Este miembro no tiene historial de pagos.</span>
                   </div>
                 ) : (
-                  <div className="bg-surface border border-border rounded overflow-hidden">
+                  <div className="bg-surface  rounded overflow-hidden">
                     <ResponsiveTable
                       columns={paymentColumns}
                       data={payments}
@@ -599,8 +591,8 @@ export default function MemberDetailPage() {
                       <button key={p.id} onClick={() => selectPlan(idx)}
                         className={`px-3 py-1.5 rounded text-xs font-semibold cursor-pointer border transition-colors font-inherit ${
                           idx === activePlanIdx
-                            ? 'bg-accent text-black border-accent'
-                            : 'bg-transparent text-text-2 border-border hover:border-accent/40'
+                            ? 'bg-accent text-accent-contrast border-accent'
+                            : 'bg-transparent text-text-2 border-border border-accent/40'
                         }`}>
                         {p.name}
                       </button>
@@ -608,7 +600,7 @@ export default function MemberDetailPage() {
                   </div>
                 )}
 
-                <div className="bg-surface border border-border rounded p-5">
+                <div className="bg-surface  rounded p-5">
                   <div className="flex items-start justify-between mb-4">
                     <div>
                       <h3 className="text-[17px] font-semibold">{currentPlan.name}</h3>
@@ -636,7 +628,7 @@ export default function MemberDetailPage() {
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                     {exercises.map((ex) => (
-                      <div key={ex.id} className="bg-surface border border-border rounded p-4">
+                      <div key={ex.id} className="bg-surface  rounded p-4">
                         <div className="flex items-start justify-between mb-2.5">
                           <span className="text-[13px] font-medium">{ex.exercise_name}</span>
                           {ex.muscle && (
@@ -679,10 +671,10 @@ export default function MemberDetailPage() {
                 <div className="grid grid-cols-3 gap-3">
                   {[
                     { label: 'Este mes', value: thisMonthCheckins, color: 'green', sub: 'Check-ins en el período actual' },
-                    { label: 'Total', value: checkIns.length, color: 'blue', sub: 'Histórico completo' },
+                    { label: 'Total', value: checkIns.length, color: 'teal', sub: 'Histórico completo' },
                     { label: 'Promedio', value: checkIns.length > 0 ? `${(thisMonthCheckins / Math.max(1, new Date().getDate())).toFixed(1)}/día` : '—', color: 'accent', sub: 'Este mes' },
                   ].map((m) => (
-                    <div key={m.label} className="relative bg-surface border border-border rounded overflow-hidden p-[18px]">
+                    <div key={m.label} className="relative bg-surface  rounded overflow-hidden p-[18px]">
                       <div className="absolute top-0 left-0 right-0 h-0.5" style={{ background: `var(--${m.color})` }} />
                       <div className="text-[11px] text-text-3 uppercase tracking-[0.06em] mb-2.5">{m.label}</div>
                       <div className="text-[26px] font-semibold leading-none -tracking-[0.03em]" style={{ color: `var(--${m.color}-text)` }}>{m.value}</div>
@@ -703,7 +695,7 @@ export default function MemberDetailPage() {
                     <span className="text-[12px] mt-1">Este miembro no ha registrado asistencia.</span>
                   </div>
                 ) : (
-                  <div className="bg-surface border border-border rounded overflow-hidden">
+                  <div className="bg-surface  rounded overflow-hidden">
                     <ResponsiveTable
                       columns={checkinColumns}
                       data={checkIns}
@@ -730,7 +722,7 @@ export default function MemberDetailPage() {
             { label: 'Correo electrónico', value: form.email || '—' },
             { label: 'Teléfono', value: fmtPhone(form.phone) },
           ].map((f) => (
-            <div key={f.label} className={`flex flex-col gap-1 px-3 py-2.5 rounded-sm bg-surface2/50 border border-border ${f.span ? 'sm:col-span-2' : ''}`}>
+            <div key={f.label} className={`flex flex-col gap-1 px-3 py-2.5 rounded-2xl bg-surface2/50 border border-border ${f.span ? 'sm:col-span-2' : ''}`}>
               <span className="text-[10px] text-text-3 uppercase tracking-[0.06em] font-medium">{f.label}</span>
               <span className="text-[13px] text-text-2">{f.value}</span>
             </div>
@@ -739,12 +731,12 @@ export default function MemberDetailPage() {
             <label className="text-[12px] text-text-2 font-medium">Ref. interna</label>
             <input type="text" value={form.alias} onChange={(e) => setForm((f) => ({ ...f, alias: e.target.value }))}
               placeholder="Referencia para identificar al miembro"
-              className="bg-surface2 border border-border2 text-text text-[13px] px-3 py-[9px] rounded-sm outline-none w-full font-sans" />
+              className="bg-surface2 border border-border2 text-text text-[13px] px-3 py-[9px] rounded-2xl outline-none w-full font-sans" />
           </div>
           <div className="flex flex-col gap-1.5">
             <label className="text-[12px] text-text-2 font-medium">Rol</label>
             <select value={form.role} onChange={(e) => setForm((f) => ({ ...f, role: e.target.value }))}
-              className="bg-surface2 border border-border2 text-text text-[13px] px-3 py-[9px] rounded-sm outline-none w-full font-sans">
+              className="bg-surface2 border border-border2 text-text text-[13px] px-3 py-[9px] rounded-2xl outline-none w-full font-sans">
               <option value="member">Miembro</option>
               <option value="trainer">Entrenador</option>
               <option value="admin">Admin</option>

@@ -25,7 +25,26 @@ npm run preview    # Preview build local
 ```
 VITE_SUPABASE_URL=
 VITE_SUPABASE_ANON_KEY=
+
+# Solo para scripts locales (Management API). Nunca commitear el valor.
+SUPABASE_ACCESS_TOKEN=
 ```
+
+## Migraciones
+
+El historial de migraciones vive en `supabase/migrations/`. Para aplicarlas a un
+proyecto con la Management API:
+
+```bash
+# 1. Lista los proyectos a los que el token tiene acceso
+node scripts/apply-migration.mjs --list
+
+# 2. Aplica un archivo (recarga PostgREST y verifica)
+node scripts/apply-migration.mjs supabase/migrations/20261029000002_plan_exercise_set_details.sql --ref <project-ref>
+```
+
+El script lee `SUPABASE_ACCESS_TOKEN` (o `SP_TOKEN`) del entorno o de `.env`, y nunca
+imprime el valor. El token se crea en Supabase → Account → Access Tokens.
 
 ## Estructura
 
@@ -33,21 +52,32 @@ VITE_SUPABASE_ANON_KEY=
 src/
 ├── components/
 │   ├── auth/        # ProtectedRoute, AuthProvider
-│   ├── layout/      # AdminLayout, TrainerLayout, MemberLayout, AuthLayout, Sidebar
+│   ├── layout/      # AppLayout, NavigationDrawer, nav-config, AuthLayout
+│   ├── routine-builder/ # RoutineBuilder, ExerciseMultiPicker, ExerciseConfigSheet
+│   ├── schedule/    # ScheduleSheet (días por plan)
+│   ├── exercises/   # ExerciseFilterSheet, CreateExerciseSheet
+│   ├── workout/     # WorkoutSession (registro y guardado de series)
+│   ├── profile/     # ActivityChart
 │   └── ui/
-│       ├── atoms/   # Button, Input, Badge, Avatar, etc.
-│       ├── molecules/ # Modal, TabBar, Pagination, etc.
-│       └── layout/  # BottomNav
-├── lib/             # Supabase client
+│       ├── atoms/   # Button, Input, Badge, MetricCard, Card, Switch, Checkmark
+│       ├── molecules/ # Modal, BottomSheet, ConfirmSheet, ListGroup, ListTile, TabBar, ResponsiveTable
+│       └── layout/  # BottomNav, MoreSheet, ScreenHeader, PageContainer
+├── lib/             # Supabase client, helpers, etiquetas
 ├── pages/
-│   ├── auth/        # Login, Register
-│   ├── dashboard/   # Admin pages
-│   ├── trainer/     # Trainer pages
-│   ├── member/      # MyPlan
+│   ├── auth/        # Login, Register, recuperación
+│   ├── dashboard/   # Admin/entrenador
+│   ├── member/      # Mi plan, Entrenamiento, Perfil, Membresía, Asistencia
 │   └── kiosk/       # CheckIn
 ├── services/        # Business services
-├── store/           # Zustand stores
+├── store/           # Zustand (auth, tema, acento, sidebar, pwa)
 ├── App.tsx          # Router principal
 ├── main.tsx         # Entry point
-└── index.css        # Tailwind v4 + theme
+└── index.css        # Tailwind v4 + tokens + presets de acento
 ```
+
+## Tema y acento
+
+El fondo usa negro puro en modo oscuro y la escala `surface` para tarjetas. El acento es
+intercambiable desde **Ajustes → Color de acento** (coral por defecto) y se aplica con
+`data-accent` sobre `--color-accent`; `--accent-contrast` mantiene el contraste del texto
+en botones cuando el acento es claro.

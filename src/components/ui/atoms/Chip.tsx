@@ -7,9 +7,9 @@ interface ChipProps {
 export function Chip({ value, label, accent }: ChipProps) {
   return (
     <div
-      className={`flex flex-col items-center rounded-sm px-2.5 py-1 min-w-[48px]
+      className={`flex flex-col items-center rounded-2xl px-3 py-1.5 min-w-[52px]
         ${accent
-          ? 'bg-accent-dim border border-[rgba(232,255,71,0.2)]'
+          ? 'bg-accent-dim border border-accent/25'
           : 'bg-surface2 border border-border'
         }`}
     >
@@ -19,7 +19,7 @@ export function Chip({ value, label, accent }: ChipProps) {
       >
         {value}
       </span>
-      <span className="text-[9px] text-text-3 uppercase tracking-wider mt-0.5">
+      <span className="text-[9px] text-text-3 uppercase tracking-wider mt-1">
         {label}
       </span>
     </div>

@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/atoms/Badge';
 import { IconButton } from '@/components/ui/atoms/IconButton';
 import { LoadingSpinner } from '@/components/ui/atoms/LoadingSpinner';
 import { Modal } from '@/components/ui/molecules/Modal';
-import { PageHeader } from '@/components/ui/molecules/PageHeader';
+import { ScreenHeader } from '@/components/ui/layout/ScreenHeader';
 import { SearchInput } from '@/components/ui/molecules/SearchInput';
 import { TabBar } from '@/components/ui/molecules/TabBar';
 import { Pagination } from '@/components/ui/molecules/Pagination';
@@ -256,7 +256,7 @@ export default function MembersPage() {
     if (!target) return;
     try {
       await membersService.hardDelete(target.id);
-      toast.success(`Miembro "${target.name}" eliminado correctamente`);
+      toast.success(`Miembro"${target.name}" eliminado correctamente`);
       setDeleteTarget(null);
       fetchMembers();
     } catch (e: any) {
@@ -318,7 +318,7 @@ export default function MembersPage() {
       label: 'Rol',
       hide: 'lg',
       render: (m) => (
-        <>{m.role === 'admin' ? <Badge variant="accent" dot>Admin</Badge> : m.role === 'trainer' ? <Badge variant="blue" dot>Entrenador</Badge> : <Badge variant="gray" dot>Miembro</Badge>}</>
+        <>{m.role === 'admin' ? <Badge variant="accent" dot>Admin</Badge> : m.role === 'trainer' ? <Badge variant="teal" dot>Entrenador</Badge> : <Badge variant="gray" dot>Miembro</Badge>}</>
       ),
     },
     {
@@ -338,7 +338,7 @@ export default function MembersPage() {
       hide: 'lg',
       render: (m) => (
         m.plan_names.length > 0 ? (
-          <span className="inline-flex items-center gap-1 px-[9px] py-[3px] rounded-sm text-[11px] font-medium"
+          <span className="inline-flex items-center gap-1 px-[9px] py-[3px] rounded-full text-[11px] font-medium"
             style={{
               background: 'rgba(129, 140, 248, 0.10)',
               color: '#818cf8',
@@ -346,14 +346,14 @@ export default function MembersPage() {
             }}>
             {m.plan_names[0]}
             {m.plan_names.length > 1 && (
-              <span className="inline-flex items-center px-[5px] py-[1px] rounded-sm text-[9px] font-bold leading-none"
+              <span className="inline-flex items-center px-[5px] py-[1px] rounded-full text-[9px] font-bold leading-none"
                 style={{ background: 'rgba(129, 140, 248, 0.18)', color: '#818cf8' }}>
                 +{m.plan_names.length - 1}
               </span>
             )}
           </span>
         ) : (
-          <span className="inline-flex items-center gap-1 px-[9px] py-[3px] rounded-sm text-[11px]"
+          <span className="inline-flex items-center gap-1 px-[9px] py-[3px] rounded-full text-[11px]"
             style={{
               color: '#52525b',
               border: '1px dashed rgba(255, 255, 255, 0.08)',
@@ -374,7 +374,7 @@ export default function MembersPage() {
       hide: 'lg',
       render: (m) => (
         m.alias
-          ? <span className="inline-flex items-center gap-1.5 px-[9px] py-[3px] rounded-sm text-[11px] bg-surface2 text-accent-text border border-border">{m.alias}</span>
+          ? <span className="inline-flex items-center gap-1.5 px-[9px] py-[3px] rounded-full text-[11px] bg-surface2 text-accent-text border border-border">{m.alias}</span>
           : <span className="text-text-3 text-[12px]">—</span>
       ),
     },
@@ -398,33 +398,24 @@ export default function MembersPage() {
 
   return (
     <>
-      <header className="px-4 sm:px-7 h-14 flex items-center justify-between border-b border-border bg-surface2 sticky top-0 z-9">
-        <div className="flex items-center gap-2 text-xs sm:text-[13px] text-text-3">
-          <div className="w-4 h-4 shrink-0 flex items-center justify-center"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-full h-full" width="16" height="16"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></div>
-          <span className="text-text-4 mx-0.5">/</span>
-          <span className="font-medium text-text-1">Miembros</span>
-        </div>
-        <div className="flex items-center gap-2 sm:gap-2.5">
+      <ScreenHeader
+        title="Miembros"
+        subtitle="Socios, roles y estado de membresía"
+        wide
+        actions={
+          <Button variant="plain" onClick={() => { resetForm(); setModalOpen(true); }} icon={<IconPlus />}>
+            Nuevo miembro
+          </Button>
+        }
+      />
 
-          <Button variant="primary" size="sm" onClick={() => { resetForm(); setModalOpen(true); }} icon={<IconPlus />}>Nuevo miembro</Button>
-        </div>
-      </header>
-
-      <div className="p-4 sm:p-7 flex-1">
-        <div className="relative mb-7 overflow-hidden rounded-xl bg-gradient-to-br from-surface to-surface2 border border-border p-5 sm:p-7">
-          <div className="absolute inset-0 opacity-[0.04]"
-            style={{ background: 'radial-gradient(600px circle at 20% 30%, var(--accent), transparent)' }} />
-          <div className="relative">
-            <PageHeader title="Miembros" description="Registro completo de socios, roles y estado de membresía" />
-          </div>
-        </div>
-
+      <div className="px-4 sm:px-6 py-4 flex-1 mx-auto w-full max-w-[1100px]">
         {/* KPI Metrics */}
         <div className="grid grid-cols-2 gap-3 mb-6 lg:grid-cols-4">
           <div className="animate-slide-up stagger-1">
             <MetricCard icon={
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-full h-full"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>
-            } color="blue" value={stats.total} label="Total miembros" delta="Registrados en el sistema" deltaType="up" />
+            } color="accent" value={stats.total} label="Total miembros" delta="Registrados en el sistema" deltaType="up" />
           </div>
           <div className="animate-slide-up stagger-2">
             <MetricCard icon={
@@ -459,7 +450,7 @@ export default function MembersPage() {
 
         {/* Table / Cards */}
         {!loading && !error && (
-          <div className="bg-surface border border-border rounded overflow-hidden">
+          <div className="bg-surface  rounded overflow-hidden">
             <ResponsiveTable
               columns={memberColumns}
               data={members}
@@ -477,26 +468,26 @@ export default function MembersPage() {
               }}
               cardFields={[
                 { label: 'Rol', value: (m: Member) => (
-                  <>{m.role === 'admin' ? <Badge variant="accent" dot>Admin</Badge> : m.role === 'trainer' ? <Badge variant="blue" dot>Entrenador</Badge> : <Badge variant="gray" dot>Miembro</Badge>}</>
+                  <>{m.role === 'admin' ? <Badge variant="accent" dot>Admin</Badge> : m.role === 'trainer' ? <Badge variant="teal" dot>Entrenador</Badge> : <Badge variant="gray" dot>Miembro</Badge>}</>
                 )},
                 { label: 'Estado', value: (m: Member) => renderStatusBadge(m) },
                 { label: 'Ref. interna', value: (m: Member) => (
                   m.alias
-                    ? <span className="inline-flex items-center gap-1.5 px-[9px] py-[3px] rounded-sm text-[11px] bg-surface2 text-accent-text border border-border">{m.alias}</span>
+                    ? <span className="inline-flex items-center gap-1.5 px-[9px] py-[3px] rounded-full text-[11px] bg-surface2 text-accent-text border border-border">{m.alias}</span>
                     : <span className="text-text-3">—</span>
                 )},
                 { label: 'Teléfono', value: (m: Member) => fmtPhone(m.phone) },
                 { label: 'Membresía', value: (m: Member) => renderMembership(m) },
                 { label: 'Plan', value: (m: Member) => (
                   m.plan_names.length > 0 ? (
-                    <span className="inline-flex items-center gap-1.5 px-[9px] py-[3px] rounded-sm text-[11px] bg-surface2 text-text-2 border border-border">
+                    <span className="inline-flex items-center gap-1.5 px-[9px] py-[3px] rounded-full text-[11px] bg-surface2 text-text-2 border border-border">
                       {m.plan_names[0]}
                       {m.plan_names.length > 1 && (
-                        <span className="inline-flex items-center px-[5px] py-[1px] rounded-sm text-[9px] font-bold leading-none bg-accent-dim text-accent border border-accent/30">+{m.plan_names.length - 1}</span>
+                        <span className="inline-flex items-center px-[5px] py-[1px] rounded-full text-[9px] font-bold leading-none bg-accent-dim text-accent border border-accent/30">+{m.plan_names.length - 1}</span>
                       )}
                     </span>
                   ) : (
-                    <span className="inline-flex items-center gap-1 px-[9px] py-[3px] rounded-sm text-[11px] text-text-3 border border-dashed border-border">Sin plan</span>
+                    <span className="inline-flex items-center gap-1 px-[9px] py-[3px] rounded-full text-[11px] text-text-3 border border-dashed border-border">Sin plan</span>
                   )
                 )},
               ]}
@@ -537,7 +528,7 @@ export default function MembersPage() {
                 <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
               </svg>
               <input type="text" placeholder="Ej. María González" value={fName} onChange={(e) => setFName(e.target.value)}
-                className="w-full bg-surface2 border border-border2 text-text text-[13px] pl-9 pr-3 py-[10px] rounded-sm outline-none font-sans
+                className="w-full bg-surface2 border border-border2 text-text text-[13px] pl-9 pr-3 py-[10px] rounded-2xl outline-none font-sans
                   placeholder:text-text-3/40 transition-all duration-150
                   focus:border-accent/60 focus:ring-1 focus:ring-accent/30" />
             </div>
@@ -555,10 +546,10 @@ export default function MembersPage() {
                 const selected = fRole === r.value;
                 return (
                   <button key={r.value} type="button" onClick={() => setFRole(r.value)}
-                    className={`relative flex flex-col items-center gap-0.5 p-2.5 rounded-sm border text-center transition-all duration-150 cursor-pointer font-sans
+                    className={`relative flex flex-col items-center gap-0.5 p-2.5 rounded-2xl border text-center transition-all duration-150 cursor-pointer font-sans
                       ${selected
                         ? 'border-accent bg-accent/8 ring-1 ring-accent/35'
-                        : 'border-border2 bg-surface2 hover:border-text-3/50'
+                        : 'border-border2 bg-surface2'
                       }`}
                   >
                     <span className={`text-[12px] font-semibold leading-tight ${selected ? 'text-accent' : 'text-text'}`}>
@@ -581,7 +572,7 @@ export default function MembersPage() {
           </div>
           )}
 
-          <div className="flex items-start gap-2.5 p-3 rounded-sm bg-surface2 border border-border text-[11px] text-text-3 leading-relaxed">
+          <div className="flex items-start gap-2.5 p-3 rounded-2xl bg-surface2 border border-border text-[11px] text-text-3 leading-relaxed">
             <svg className="mt-0.5 shrink-0 text-accent" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
               <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>
             </svg>
@@ -614,7 +605,7 @@ export default function MembersPage() {
                 </div>
                 <div className="text-[17px] font-semibold">{m.name}</div>
                 <div className="flex gap-1.5 mt-1.5">
-                  {m.role === 'admin' ? <Badge variant="accent" dot>Admin</Badge> : m.role === 'trainer' ? <Badge variant="blue" dot>Entrenador</Badge> : <Badge variant="gray" dot>Miembro</Badge>}
+                  {m.role === 'admin' ? <Badge variant="accent" dot>Admin</Badge> : m.role === 'trainer' ? <Badge variant="teal" dot>Entrenador</Badge> : <Badge variant="gray" dot>Miembro</Badge>}
                   {m.registration_status === 'pending'
                     ? <Badge variant="amber" dot>Pendiente</Badge>
                     : m.status === 'active'
@@ -675,7 +666,7 @@ export default function MembersPage() {
                     </svg>
                     <span className="text-[13px] text-text-2">{m.plan_names[0]}</span>
                     {m.plan_names.length > 1 && (
-                      <span className="inline-flex items-center px-[6px] py-[1px] rounded-sm text-[10px] font-semibold bg-accent-dim text-accent border border-accent/30">+{m.plan_names.length - 1}</span>
+                      <span className="inline-flex items-center px-[6px] py-[1px] rounded-full text-[10px] font-semibold bg-accent-dim text-accent border border-accent/30">+{m.plan_names.length - 1}</span>
                     )}
                   </div>
                 ) : (
@@ -698,7 +689,7 @@ export default function MembersPage() {
             <div className="flex flex-col items-center py-10 gap-4">
               <div className="w-[64px] h-[64px] rounded-full bg-surface2 animate-pulse" />
               <div className="w-32 h-4 rounded bg-surface2 animate-pulse" />
-              <div className="w-20 h-5 rounded-sm bg-surface2 animate-pulse" />
+              <div className="w-20 h-5 rounded-2xl bg-surface2 animate-pulse" />
               <div className="w-full space-y-3 mt-4">
                 <div className="flex gap-3">
                   <div className="flex-1 h-[72px] rounded bg-surface2 animate-pulse" />
@@ -721,7 +712,7 @@ export default function MembersPage() {
                 <div className="flex-1 min-w-0">
                   <h2 className="text-[17px] font-semibold truncate">{detailTarget.name}</h2>
                   <div className="flex flex-wrap items-center gap-1.5 mt-1">
-                    {detailTarget.role === 'admin' ? <Badge variant="accent" dot>Admin</Badge> : detailTarget.role === 'trainer' ? <Badge variant="blue" dot>Entrenador</Badge> : <Badge variant="gray" dot>Miembro</Badge>}
+                    {detailTarget.role === 'admin' ? <Badge variant="accent" dot>Admin</Badge> : detailTarget.role === 'trainer' ? <Badge variant="teal" dot>Entrenador</Badge> : <Badge variant="gray" dot>Miembro</Badge>}
                     {detailTarget.registration_status === 'pending'
                       ? <Badge variant="amber" dot>Pendiente</Badge>
                       : detailTarget.status === 'active'
@@ -760,10 +751,10 @@ export default function MembersPage() {
                 {[
                   { label: 'Antigüedad', value: `${daysDiff(detailTarget.joinedAt) ?? 0} días`, color: 'accent', sub: 'Desde ' + fmtDate(detailTarget.joinedAt) },
                   { label: 'Membresía', value: detailTarget.membresia ? 'Activa' : 'Sin membresía', color: detailTarget.membresia ? 'green' : 'red', sub: detailTarget.vence ? `Vence ${fmtDate(detailTarget.vence)}` : '—' },
-                  { label: 'Check-ins', value: detailCheckins, color: 'blue', sub: 'Este mes' },
+                  { label: 'Check-ins', value: detailCheckins, color: 'accent', sub: 'Este mes' },
                   { label: 'Vencimiento', value: detailTarget.vence ? fmtDate(detailTarget.vence) : '—', color: detailTarget.vence ? 'green' : 'gray', sub: detailTarget.membresia ?? 'Sin membresía' },
                 ].map((m) => (
-                  <div key={m.label} className="relative bg-surface border border-border rounded overflow-hidden p-[14px]">
+                  <div key={m.label} className="relative bg-surface  rounded overflow-hidden p-[14px]">
                     <div className="absolute top-0 left-0 right-0 h-0.5" style={{ background: `var(--${m.color})` }} />
                     <div className="text-[10px] text-text-3 uppercase tracking-[0.06em] mb-2">{m.label}</div>
                     <div className="text-[18px] font-semibold leading-none -tracking-[0.03em]" style={{ color: `var(--${m.color}-text)` }}>{m.value}</div>
@@ -788,7 +779,7 @@ export default function MembersPage() {
                         { label: 'Correo electrónico', value: dForm.email || '—' },
                         { label: 'Teléfono', value: fmtPhone(dForm.phone) },
                       ].map((f) => (
-                        <div key={f.label} className={`flex flex-col gap-1 px-3 py-2.5 rounded-sm bg-surface2/50 border border-border ${f.span ? 'sm:col-span-2' : ''}`}>
+                        <div key={f.label} className={`flex flex-col gap-1 px-3 py-2.5 rounded-2xl bg-surface2/50 border border-border ${f.span ? 'sm:col-span-2' : ''}`}>
                           <div className="flex items-center justify-between">
                             <span className="text-[10px] text-text-3 uppercase tracking-[0.06em] font-medium">{f.label}</span>
                             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-text-3/40 shrink-0">
@@ -801,13 +792,13 @@ export default function MembersPage() {
                       <div className="flex flex-col gap-1.5 sm:col-span-2">
                         <label className="text-[10px] text-text-3 uppercase tracking-[0.06em] font-medium">Rol</label>
                         {isTrainer ? (
-                          <div className="bg-surface2 border border-border text-text-2 text-[14px] px-3 py-[9px] rounded-sm w-full font-sans">
+                          <div className="bg-surface2 border border-border text-text-2 text-[14px] px-3 py-[9px] rounded-2xl w-full font-sans">
                             {dForm.role === 'member' ? 'Miembro' : dForm.role === 'trainer' ? 'Entrenador' : 'Admin'}
                           </div>
                         ) : (
                           <select value={dForm.role}
                             onChange={(e) => setDForm((f) => ({ ...f, role: e.target.value }))}
-                            className="bg-surface border border-border text-text text-[14px] px-3 py-[9px] rounded-sm outline-none w-full font-sans focus:border-accent focus:ring-1 focus:ring-accent/40 transition-all">
+                            className="bg-surface  text-text text-[14px] px-3 py-[9px] rounded-2xl outline-none w-full font-sans focus:border-accent focus:ring-1 focus:ring-accent/40 transition-all">
                             <option value="member">Miembro</option>
                             <option value="trainer">Entrenador</option>
                             <option value="admin">Admin</option>
@@ -818,7 +809,7 @@ export default function MembersPage() {
                   </div>
 
                   {/* Editable zone — only alias */}
-                  <div className="border border-accent/15 bg-accent/5 rounded-sm p-4">
+                  <div className="border border-accent/15 bg-accent/5 rounded-2xl p-4">
                     <div className="flex items-center justify-between mb-3">
                       <h3 className="text-[11px] text-accent uppercase tracking-[0.08em] font-semibold flex items-center gap-1.5">
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
@@ -831,7 +822,7 @@ export default function MembersPage() {
                     <input type="text" value={dForm.alias}
                       onChange={(e) => setDForm((f) => ({ ...f, alias: e.target.value }))}
                       placeholder="Referencia para identificar al miembro"
-                      className="w-full bg-surface border border-accent/30 text-text text-[14px] px-3 py-[10px] rounded-sm outline-none font-sans
+                      className="w-full bg-surface border border-accent/30 text-text text-[14px] px-3 py-[10px] rounded-2xl outline-none font-sans
                         placeholder:text-text-3/40 transition-all duration-150
                         focus:border-accent focus:ring-1 focus:ring-accent/40" />
                     <p className="text-[10px] text-text-3/60 mt-2">Solo visible para el admin. Identifica al miembro en pre-registro.</p>
@@ -886,7 +877,7 @@ export default function MembersPage() {
               placeholder="Buscar por nombre, email o teléfono..."
               value={linkSearch}
               onChange={(e) => searchLinkCandidates(e.target.value)}
-              className="w-full bg-surface2 border border-border2 text-text text-[13px] px-3 py-[9px] pl-9 rounded-sm outline-none font-sans"
+              className="w-full bg-surface2 border border-border2 text-text text-[13px] px-3 py-[9px] pl-9 rounded-2xl outline-none font-sans"
             />
             <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-text-3" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
@@ -910,7 +901,7 @@ export default function MembersPage() {
             <div className="flex flex-col gap-1.5 max-h-[320px] overflow-y-auto">
               {linkCandidates.map((c) => (
                 <div key={c.id}
-                  className="flex items-center gap-3 p-3 rounded-sm bg-surface2/50 border border-border hover:border-accent/30 transition-colors group">
+                  className="flex items-center gap-3 p-3 rounded-2xl bg-surface2/50 border border-border transition-colors group">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <span className="text-[13px] font-medium">{c.full_name}</span>
@@ -940,7 +931,7 @@ export default function MembersPage() {
           <div className="text-[13px] text-text-1 leading-relaxed">
             ¿Estás seguro de eliminar permanentemente a <strong>{deleteTarget?.name}</strong>?
           </div>
-          <div className="text-[12px] text-text-3 bg-red-bg/10 border border-red/20 rounded-sm p-3 leading-relaxed">
+          <div className="text-[12px] text-text-3 bg-red-bg/10 border border-red/20 rounded-2xl p-3 leading-relaxed">
             Se borrarán del sistema: perfil, membresías, pagos, planes de entrenamiento, check-ins y su cuenta de usuario.
             Esta acción no se puede deshacer.
           </div>
@@ -956,7 +947,7 @@ export default function MembersPage() {
           <div className="text-[13px] text-text-1 leading-relaxed">
             ¿Desvincular cuenta de <strong>{unlinkTarget?.name}</strong>?
           </div>
-          <div className="text-[12px] text-amber-text bg-amber-bg border border-amber/20 rounded-sm p-3 leading-relaxed">
+          <div className="text-[12px] text-amber-text bg-amber-bg border border-amber/20 rounded-2xl p-3 leading-relaxed">
             El perfil volverá a estado pendiente sin perder membresías, pagos ni historial.
           </div>
         </div>

@@ -8,9 +8,10 @@ import { paymentsService } from '@/services/payments.service';
 import { Modal } from '@/components/ui/molecules/Modal';
 import { Button } from '@/components/ui/atoms/Button';
 import { Badge } from '@/components/ui/atoms/Badge';
+import { Checkmark } from '@/components/ui/atoms/Checkmark';
 import { IconButton } from '@/components/ui/atoms/IconButton';
 import { LoadingSpinner } from '@/components/ui/atoms/LoadingSpinner';
-import { PageHeader } from '@/components/ui/molecules/PageHeader';
+import { ScreenHeader } from '@/components/ui/layout/ScreenHeader';
 import { SearchInput } from '@/components/ui/molecules/SearchInput';
 import { TabBar } from '@/components/ui/molecules/TabBar';
 import { Pagination } from '@/components/ui/molecules/Pagination';
@@ -354,28 +355,18 @@ export default function MembershipsPage() {
 
   return (
     <>
-      <header className="px-4 sm:px-7 h-14 flex items-center justify-between border-b border-border bg-surface2 sticky top-0 z-9">
-        <div className="flex items-center gap-2 text-xs sm:text-[13px] text-text-3">
-          <div className="w-4 h-4 shrink-0 flex items-center justify-center"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-full h-full" width="16" height="16"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></div>
-          <span className="text-text-4 mx-0.5">/</span>
-          <span className="font-medium text-text-1">Membresías</span>
-        </div>
-        <div className="flex items-center gap-2 sm:gap-2.5">
-          <Button variant="primary" size="sm" icon={<IconPlus />} onClick={() => { resetForm(); setModalOpen(true); }}>
+      <ScreenHeader
+        title="Membresías"
+        subtitle="Control de planes y vencimientos"
+        wide
+        actions={
+          <Button variant="plain" icon={<IconPlus />} onClick={() => { resetForm(); setModalOpen(true); }}>
             Nueva membresía
           </Button>
-        </div>
-      </header>
+        }
+      />
 
-      <div className="p-4 sm:p-7 flex-1">
-        <div className="relative mb-7 overflow-hidden rounded-xl bg-gradient-to-br from-surface to-surface2 border border-border p-5 sm:p-7">
-          <div className="absolute inset-0 opacity-[0.04]"
-            style={{ background: 'radial-gradient(600px circle at 20% 30%, var(--accent), transparent)' }} />
-          <div className="relative">
-            <PageHeader title="Membresías" description="Control de planes y vencimientos" />
-          </div>
-        </div>
-
+      <div className="px-4 sm:px-6 py-4 flex-1 mx-auto w-full max-w-[1100px]">
         {/* METRICS */}
         <div className="grid grid-cols-2 gap-3 mb-6 lg:grid-cols-2">
           <div className="animate-slide-up stagger-1">
@@ -392,8 +383,8 @@ export default function MembershipsPage() {
 
         {/* ALERT BANNER */}
         {warnCount > 0 && (
-          <div className="bg-amber-bg border border-amber/20 rounded-sm p-3 flex items-start gap-3 text-xs text-amber-text mb-4">
-            <div className="w-7 h-7 rounded-lg bg-amber-bg flex items-center justify-center shrink-0">
+          <div className="bg-amber-bg border border-amber/20 rounded-2xl p-3 flex items-start gap-3 text-xs text-amber-text mb-4">
+            <div className="w-7 h-7 rounded-2xl bg-amber-bg flex items-center justify-center shrink-0">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4">
                 <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
                 <line x1="12" y1="9" x2="12" y2="13" />
@@ -431,7 +422,7 @@ export default function MembershipsPage() {
 
         {/* Table / Cards */}
         {!loading && !error && (
-          <div className="animate-slide-up stagger-5 bg-surface border border-border rounded overflow-hidden">
+          <div className="animate-slide-up stagger-5 bg-surface  rounded overflow-hidden">
             <ResponsiveTable
               columns={columns}
               data={rows}
@@ -522,7 +513,7 @@ export default function MembershipsPage() {
           <div className="flex flex-col items-center py-10 gap-4">
             <div className="w-[64px] h-[64px] rounded-full bg-surface2 animate-pulse" />
             <div className="w-32 h-4 rounded bg-surface2 animate-pulse" />
-            <div className="w-20 h-5 rounded-sm bg-surface2 animate-pulse" />
+            <div className="w-20 h-5 rounded-2xl bg-surface2 animate-pulse" />
             <div className="w-full space-y-3 mt-4">
               <div className="h-4 rounded bg-surface2 animate-pulse" />
               <div className="h-4 w-3/4 rounded bg-surface2 animate-pulse" />
@@ -543,7 +534,7 @@ export default function MembershipsPage() {
               </div>
               <div className="text-[17px] font-semibold">{previewMember.full_name}</div>
               <div className="mt-1.5">
-                {previewMember.role === 'member' ? <Badge variant="blue" dot>Miembro</Badge> : previewMember.role === 'trainer' ? <Badge variant="purple" dot>Entrenador</Badge> : <Badge variant="accent" dot>Admin</Badge>}
+                {previewMember.role === 'member' ? <Badge variant="gray" dot>Miembro</Badge> : previewMember.role === 'trainer' ? <Badge variant="purple" dot>Entrenador</Badge> : <Badge variant="accent" dot>Admin</Badge>}
               </div>
             </div>
 
@@ -615,10 +606,10 @@ export default function MembershipsPage() {
                       if (isVisitaType && paymentMethod === 'pending') setPaymentMethod('');
                       setStartDate(today);
                     }}
-                    className={`relative flex flex-col items-start p-3 rounded-sm border text-left transition-all duration-150 cursor-pointer font-sans
+                    className={`relative flex flex-col items-start p-3 rounded-2xl border text-left transition-all duration-150 cursor-pointer font-sans
                       ${selected
                         ? 'border-accent bg-accent/8 ring-1 ring-accent/40'
-                        : 'border-border2 bg-surface2 hover:border-text-3'
+                        : 'border-border2 bg-surface2'
                       }`}
                   >
                     <div className={`text-[13px] font-semibold ${selected ? 'text-accent' : 'text-text'}`}>
@@ -648,7 +639,7 @@ export default function MembershipsPage() {
               <div className="flex flex-col gap-1.5">
                 <label className="text-[12px] text-text-2 font-medium">Miembro *</label>
                 {selMember ? (
-                  <div className="flex items-center justify-between bg-surface2 border border-border2 rounded-sm px-3 py-[7px]">
+                  <div className="flex items-center justify-between bg-surface2 border border-border2 rounded-2xl px-3 py-[7px]">
                     <div className="flex items-center gap-2.5 min-w-0">
                       <div className="w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-semibold shrink-0"
                         style={{ background: AVATAR_COLORS[avatarIndex(selMember)].bg, color: AVATAR_COLORS[avatarIndex(selMember)].fg }}>
@@ -659,13 +650,13 @@ export default function MembershipsPage() {
                       </span>
                     </div>
                     <button type="button" onClick={() => setMemberPickerOpen(true)}
-                      className="text-[11px] font-semibold text-accent hover:underline shrink-0 ml-2 font-sans">
+                      className="text-[11px] font-semibold text-accent shrink-0 ml-2 font-sans">
                       Cambiar
                     </button>
                   </div>
                 ) : (
                   <button type="button" onClick={() => setMemberPickerOpen(true)}
-                    className="flex items-center gap-2 w-full bg-surface2 border border-border2 text-text-3 text-[13px] px-3 py-[9px] rounded-sm hover:border-text-3 hover:text-text-2 transition-all duration-150 text-left font-sans cursor-pointer">
+                    className="flex items-center gap-2 w-full bg-surface2 border border-border2 text-text-3 text-[13px] px-3 py-[9px] rounded-2xl transition-all duration-150 text-left font-sans cursor-pointer">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="shrink-0">
                       <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
                       <circle cx="9" cy="7" r="4"/>
@@ -678,7 +669,7 @@ export default function MembershipsPage() {
               </div>
 
               {isVisita ? (
-                <div className="border border-accent/20 bg-accent/5 rounded-sm p-3.5">
+                <div className="border border-accent/20 bg-accent/5 rounded-2xl p-3.5">
                   <div className="flex items-center justify-between mb-2">
                     <div className="text-[12px] text-text-2 font-medium tracking-[0.03em] uppercase">Pase del día</div>
                     <Badge variant="accent" dot>Vence hoy</Badge>
@@ -699,13 +690,13 @@ export default function MembershipsPage() {
                       type="date"
                       value={startDate}
                       onChange={(e) => setStartDate(e.target.value)}
-                      className="bg-surface2 border border-border2 text-text text-[13px] px-3 py-[9px] rounded-sm outline-none w-full font-sans"
+                      className="bg-surface2 border border-border2 text-text text-[13px] px-3 py-[9px] rounded-2xl outline-none w-full font-sans"
                     />
                   </div>
                   {computedEnd && (
                     <div className="flex flex-col gap-1">
                       <label className="text-[12px] text-text-2 font-medium">Fecha de vencimiento</label>
-                      <div className="flex items-center gap-2 text-[13px] text-text px-3 py-[9px] bg-surface2 border border-border2 rounded-sm opacity-80">
+                      <div className="flex items-center gap-2 text-[13px] text-text px-3 py-[9px] bg-surface2 border border-border2 rounded-2xl opacity-80">
                         <IconCalendar width="13" height="13" className="text-text-3 shrink-0" />
                         {localDate(computedEnd).toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' })}
                       </div>
@@ -729,12 +720,12 @@ export default function MembershipsPage() {
                         onClick={() => {
                           if (!disabled) setPaymentMethod(selected ? '' : opt.value);
                         }}
-                        className={`flex items-center gap-2 px-3 py-[9px] rounded-sm border text-[12px] font-medium transition-all duration-150 font-sans
+                        className={`flex items-center gap-2 px-3 py-[9px] rounded-2xl border text-[12px] font-medium transition-all duration-150 font-sans
                           ${(opt as any).center ? 'col-span-2 justify-center' : 'text-left'}
                           ${disabled ? 'cursor-not-allowed opacity-40 border-border2 bg-surface2 text-text-3' :
                           selected
                             ? 'border-accent bg-accent/8 ring-1 ring-accent/40 text-accent cursor-pointer'
-                            : 'border-border2 bg-surface2 hover:border-text-3 text-text-2 cursor-pointer'
+                            : 'border-border2 bg-surface2 text-text-2 cursor-pointer'
                           }`}
                       >
                         {selected && !disabled && (
@@ -748,7 +739,7 @@ export default function MembershipsPage() {
                   })}
                 </div>
                 {selTypeData && (
-                  <div className="flex items-center gap-2 text-[12px] text-text-2 px-3 py-2 bg-surface2 border border-border2 rounded-sm">
+                  <div className="flex items-center gap-2 text-[12px] text-text-2 px-3 py-2 bg-surface2 border border-border2 rounded-2xl">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-text-3 shrink-0">
                       <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
                     </svg>
@@ -789,31 +780,20 @@ export default function MembershipsPage() {
                 const isSelected = selMember === m.id;
                 const av = avatarIndex(m.id);
                 return (
-                  <div key={m.id} onClick={() => { setSelMember(m.id); setMemberPickerOpen(false); }}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: 12,
-                      padding: '10px 0', cursor: 'pointer',
-                      borderBottom: '1px solid rgba(255,255,255,0.07)',
-                      background: isSelected ? 'rgba(232,93,93,0.12)' : 'transparent',
-                      transition: 'background 0.15s',
-                    }}>
-                    <div style={{
-                      width: 16, height: 16, borderRadius: 4,
-                      border: `1px solid ${isSelected ? '#e85d5d' : 'rgba(255,255,255,0.13)'}`,
-                      background: isSelected ? '#e85d5d' : 'transparent',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-                    }}>
-                      {isSelected && <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#000" strokeWidth="3"><polyline points="20 6 9 17 4 12" /></svg>}
-                    </div>
-                    <div className="w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-semibold shrink-0"
-                      style={{ background: AVATAR_COLORS[av].bg, color: AVATAR_COLORS[av].fg }}>
-                      {initials(m.full_name)}
-                    </div>
-                    <div className="min-w-0">
-                      <div className="text-[13px] font-medium text-text truncate">{m.full_name}</div>
-                      {m.email && <div className="text-[11px] text-text-3 truncate">{m.email}</div>}
-                    </div>
+                <button key={m.id} type="button" onClick={() => { setSelMember(m.id); setMemberPickerOpen(false); }}
+                  className={`w-full flex items-center gap-3 px-2 py-2.5 text-left rounded-xl border-none cursor-pointer active:opacity-70 transition-colors ${
+                    isSelected ? 'bg-accent-dim' : 'bg-transparent'
+                  }`}>
+                  <Checkmark checked={isSelected} size="sm" />
+                  <div className="w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-semibold shrink-0"
+                    style={{ background: AVATAR_COLORS[av].bg, color: AVATAR_COLORS[av].fg }}>
+                    {initials(m.full_name)}
                   </div>
+                  <div className="min-w-0">
+                    <div className="text-[13px] font-medium text-text truncate">{m.full_name}</div>
+                    {m.email && <div className="text-[11px] text-text-3 truncate">{m.email}</div>}
+                  </div>
+                </button>
                 );
               });
             })()}
@@ -853,10 +833,10 @@ export default function MembershipsPage() {
                           setEditEnd(`${ed.getFullYear()}-${String(ed.getMonth() + 1).padStart(2, '0')}-${String(ed.getDate()).padStart(2, '0')}`)
                         }
                       }}
-                      className={`relative flex flex-col items-start p-3 rounded-sm border text-left transition-all duration-150 cursor-pointer font-sans
+                      className={`relative flex flex-col items-start p-3 rounded-2xl border text-left transition-all duration-150 cursor-pointer font-sans
                         ${selected
                           ? 'border-accent bg-accent/8 ring-1 ring-accent/40'
-                          : 'border-border2 bg-surface2 hover:border-text-3'
+                          : 'border-border2 bg-surface2'
                         }`}
                     >
                       <div className={`text-[13px] font-semibold ${selected ? 'text-accent' : 'text-text'}`}>
@@ -894,7 +874,7 @@ export default function MembershipsPage() {
                     setEditEnd(`${ed.getFullYear()}-${String(ed.getMonth() + 1).padStart(2, '0')}-${String(ed.getDate()).padStart(2, '0')}`)
                   }
                 }}
-                  className="bg-surface2 border border-border2 text-text text-[13px] px-3 py-2 rounded-sm outline-none w-full font-sans [color-scheme:dark]" />
+                  className="bg-surface2 border border-border2 text-text text-[13px] px-3 py-2 rounded-2xl outline-none w-full font-sans [color-scheme:dark]" />
                 {editStart && (
                   <span className="text-[10px] text-text-3 font-mono">{fmtDate(editStart)}</span>
                 )}
@@ -902,7 +882,7 @@ export default function MembershipsPage() {
               <div className="flex flex-col gap-1.5">
                 <label className="text-[11px] text-text-3 uppercase tracking-[0.08em] font-medium">Vencimiento</label>
                 <input type="date" value={editEnd} onChange={(e) => setEditEnd(e.target.value)}
-                  className="bg-surface2 border border-border2 text-text text-[13px] px-3 py-2 rounded-sm outline-none w-full font-sans [color-scheme:dark]" />
+                  className="bg-surface2 border border-border2 text-text text-[13px] px-3 py-2 rounded-2xl outline-none w-full font-sans [color-scheme:dark]" />
                 {editEnd && (
                   <span className="text-[10px] text-text-3 font-mono">{fmtDate(editEnd)}</span>
                 )}
@@ -922,12 +902,12 @@ export default function MembershipsPage() {
                   return (
                     <button key={opt.value} type="button"
                       onClick={() => setEditStatus(opt.value)}
-                      className={`flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-sm border text-[12px] font-medium transition-all duration-150 cursor-pointer font-sans
+                      className={`flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-2xl border text-[12px] font-medium transition-all duration-150 cursor-pointer font-sans
                         ${selected
                           ? opt.color === 'green' ? 'border-green bg-green-bg text-green-text ring-1 ring-green/30'
                             : opt.color === 'red' ? 'border-red bg-red-bg text-red-text ring-1 ring-red/30'
                             : 'border-text-3 bg-surface2 text-text-3 ring-1 ring-text-3/30'
-                          : 'border-border2 bg-surface2 text-text-2 hover:border-text-3'
+                          : 'border-border2 bg-surface2 text-text-2'
                         }`}
                     >
                       <span className={`w-1.5 h-1.5 rounded-full ${
@@ -946,7 +926,7 @@ export default function MembershipsPage() {
 
             {/* SUMMARY */}
             {editId && (
-              <div className="bg-surface2 border border-border rounded-sm p-3 space-y-1.5">
+              <div className="bg-surface2 border border-border rounded-2xl p-3 space-y-1.5">
                 <div className="text-[10px] text-text-3 uppercase tracking-[0.08em] font-medium mb-2">Resumen de cambios</div>
                 <div className="flex items-center justify-between text-[12px]">
                   <span className="text-text-3">Tipo</span>
@@ -1000,7 +980,7 @@ export default function MembershipsPage() {
           <div className="text-[13px] text-text-1 leading-relaxed">
             ¿Estás seguro de eliminar la membresía <strong>{deleteTarget?.plan}</strong> de <strong>{deleteTarget?.name}</strong>?
           </div>
-          <div className="text-[12px] text-text-3 bg-red-bg/10 border border-red/20 rounded-sm p-3 leading-relaxed">
+          <div className="text-[12px] text-text-3 bg-red-bg/10 border border-red/20 rounded-2xl p-3 leading-relaxed">
             Se eliminarán los pagos asociados a esta membresía.
             Esta acción no se puede deshacer.
           </div>

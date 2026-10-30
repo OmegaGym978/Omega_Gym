@@ -4,6 +4,7 @@ import { checkInsService, type CheckIn } from '@/services/checkIns.service'
 import { LoadingSpinner } from '@/components/ui/atoms/LoadingSpinner'
 import { MetricCard } from '@/components/ui/atoms/MetricCard'
 import { fmtDate } from '@/lib/helpers'
+import { ScreenHeader } from '@/components/ui/layout/ScreenHeader'
 
 const staggerClass = (i: number) => {
   const map = ['stagger-1', 'stagger-2', 'stagger-3', 'stagger-4', 'stagger-5']
@@ -81,19 +82,8 @@ export default function MyCheckinsPage() {
   const monthName = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'][month]
 
   return (<>
-      <header className="px-4 sm:px-7 h-14 flex items-center justify-between border-b border-border bg-surface2 sticky top-0 z-9">
-        <div className="flex items-center gap-2 text-xs sm:text-[13px] text-text-3">
-          <div className="w-4 h-4 shrink-0 flex items-center justify-center">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-full h-full" width="16" height="16">
-              <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>
-            </svg>
-          </div>
-          <span className="text-text-4 mx-0.5">/</span>
-          <span className="font-medium text-text-1">Mi asistencia</span>
-        </div>
-        <div />
-      </header>
-    <div className="p-4 sm:p-7 flex-1">
+      <ScreenHeader title="Mi asistencia" subtitle="Tus visitas al gym" />
+    <div className="px-4 sm:px-5 py-4 flex-1 mx-auto w-full max-w-[560px]">
 
 
       <div className={`grid grid-cols-2 gap-2.5 mb-4 animate-slide-up ${staggerClass(1)}`}>
@@ -101,7 +91,7 @@ export default function MyCheckinsPage() {
         <MetricCard icon={<IconStreak />} label="Racha actual" value={streak} color={streak > 0 ? 'green' : 'gray'} />
       </div>
 
-      <div className={`bg-surface border border-border rounded-xl overflow-hidden animate-slide-up ${staggerClass(2)}`}>
+      <div className={`bg-surface  rounded-2xl overflow-hidden animate-slide-up ${staggerClass(2)}`}>
         <div className="px-5 sm:px-6 py-4 border-b border-border">
           <div className="text-[13px] font-semibold capitalize">{monthName} {year}</div>
         </div>
@@ -125,10 +115,10 @@ export default function MyCheckinsPage() {
                   key={day}
                   className={`aspect-square rounded-md flex items-center justify-center text-[13px] font-medium transition-all duration-150 ${
                     checked
-                      ? 'bg-accent text-black font-semibold scale-100'
+                      ? 'bg-accent text-accent-contrast font-semibold scale-100'
                       : isToday
                         ? 'border border-dashed border-text-3 text-text-3'
-                        : 'text-text-3 hover:bg-surface2'
+                        : 'text-text-3 bg-surface2'
                   }`}
                   title={dateStr}
                 >
@@ -154,7 +144,7 @@ export default function MyCheckinsPage() {
         </div>
       </div>
 
-      <div className={`bg-surface border border-border rounded-xl overflow-hidden mt-4 animate-slide-up ${staggerClass(3)}`}>
+      <div className={`bg-surface  rounded-2xl overflow-hidden mt-4 animate-slide-up ${staggerClass(3)}`}>
         <div className="px-5 sm:px-6 py-4 border-b border-border">
           <div className="text-[13px] font-semibold">Historial reciente</div>
         </div>

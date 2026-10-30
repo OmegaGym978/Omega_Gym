@@ -20,6 +20,8 @@ export interface Exercise {
   image_url: string | null
   is_active: boolean
   created_at: string
+  /** NULL = catálogo global; uuid = ejercicio personal del miembro. */
+  created_by?: string | null
 }
 
 export interface ExerciseFilters {
@@ -139,5 +141,45 @@ export const exercisesService = {
     if (error) throw error
     const unique = [...new Set((data || []).map((r: any) => r.muscle_group))]
     return unique
+  },
+
+  /** Crea un ejercicio personal del miembro (visible solo para él). */
+  createCustom: async (input: {
+    name: string
+    muscle_group: string
+    equipment: string
+    gif_url?: string | null
+    image_url?: string | null
+    instructions_es?: string | null
+    created_by: string
+  }): Promise<Exercise> => {
+    const name = input.name.trim()
+    const { data, error } = await supabase
+      .from('exercises')
+      .insert({
+        name,
+        name_es: name,
+        category: input.muscle_group,
+        body_part: input.muscle_group,
+        target: input.muscle_group,
+        muscle_group: input.muscle_group,
+        equipment: input.equipment,
+        gif_url: input.gif_url?.trim() || null,
+        image_url: input.image_url?.trim() || null,
+        instructions_es: input.instructions_es?.trim() || null,
+        is_active: true,
+        created_by: input.created_by,
+      })
+      .select()
+      .single()
+
+    if (error) throw error
+    return data as Exercise
+  },
+
+  /** Elimina un ejercicio personal (RLS solo permite los propios). */
+  deleteCustom: async (id: string): Promise<void> => {
+    const { error } = await supabase.from('exercises').delete().eq('id', id)
+    if (error) throw error
   },
 }

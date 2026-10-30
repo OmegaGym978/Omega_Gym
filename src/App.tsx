@@ -25,6 +25,8 @@ import MyRoutinesPage from '@/pages/member/MyRoutines'
 import MyMembershipPage from '@/pages/member/MyMembership'
 import MyCheckinsPage from '@/pages/member/MyCheckins'
 import MyProfilePage from '@/pages/member/MyProfile'
+import MyExercisesPage from '@/pages/member/MyExercises'
+import ExerciseDetailPage from '@/pages/member/ExerciseDetail'
 import { PwaUpdateBanner } from '@/components/layout/PwaUpdateBanner'
 
 function AppLayout() {
@@ -77,6 +79,8 @@ export default function App() {
           <Route path="/my-payments" element={<Navigate to="/my-membership?tab=pagos" replace />} />
           <Route path="/my-checkins" element={<MyCheckinsPage />} />
           <Route path="/my-profile" element={<MyProfilePage />} />
+          <Route path="/my-profile/exercises" element={<MyExercisesPage />} />
+          <Route path="/my-profile/exercises/:exerciseId" element={<ExerciseDetailPage />} />
         </Route>
 
         <Route path="/" element={<RootRedirect />} />

@@ -1,80 +1,96 @@
 import { Link, useLocation } from 'react-router-dom'
+import type { NavLink } from '@/components/layout/nav-config'
 
-export interface BottomNavItem {
-  label: string
-  href?: string
-  icon: string
-  action?: 'navigate' | 'settings'
-}
-
-const defaultItems: BottomNavItem[] = [
-  { label: 'Plan', href: '/my-plan', icon: 'plan' },
-  { label: 'Membresía', href: '/my-membership', icon: 'membership' },
-  ...(import.meta.env.DEV ? [{ label: 'Asistencia', href: '/my-checkins', icon: 'checkin' }] : []),
-  { label: 'Perfil', href: '/my-profile', icon: 'profile' },
-]
-
-const defaultIcons: Record<string, string> = {
-  plan: '<path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>',
-  membership: '<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/>',
-  payment: '<path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/>',
-  checkin: '<rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><polyline points="9 13 12 16 17 11"/>',
-  profile: '<path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/>',
-  settings: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/>',
+export interface BottomNavItem extends NavLink {
+  badge?: number
 }
 
 interface Props {
-  items?: BottomNavItem[]
-  icons?: Record<string, string>
-  onSettings?: () => void
+  items: BottomNavItem[]
+  icons: Record<string, string>
+  onMore?: () => void
+  moreActive?: boolean
 }
 
-export function BottomNav({ items, icons, onSettings }: Props) {
+/**
+ * Barra inferior fija. En móvil ocupa el ancho completo con área segura;
+ * en escritorio flota como píldora centrada.
+ */
+export function BottomNav({ items, icons, onMore, moreActive }: Props) {
   const pathname = useLocation().pathname
-  const navItems = items || defaultItems
-  const iconPaths = icons || defaultIcons
+  // Con cinco pestañas el espacio por ítem baja; reducimos un punto la etiqueta.
+  const slotCount = items.length + (onMore ? 1 : 0)
+  const compact = slotCount >= 5
+  const labelClass = compact ? 'text-[9px]' : 'text-[10px]'
 
   return (
-    <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-surface border-t border-border flex items-center justify-around pb-[env(safe-area-inset-bottom,0px)]">
-      {navItems.map((item) => {
-        const isActive = item.href ? pathname === item.href : false
-
-        if (item.action === 'settings') {
+    <nav className="fixed inset-x-0 bottom-0 z-50 flex justify-center pointer-events-none">
+      <div className="pointer-events-auto w-full lg:max-w-[600px] lg:mb-4 lg:rounded-full lg:border border-t border-border bg-bg/90 backdrop-blur-xl flex items-stretch pb-[env(safe-area-inset-bottom,0px)] lg:pb-0 lg:shadow-[0_12px_48px_rgba(0,0,0,0.55)]">
+        {items.map(item => {
+          const isActive = pathname === item.href || pathname.startsWith(item.href + '/')
           return (
-            <button
-              key="settings"
-              onClick={onSettings}
-              className="flex flex-col items-center gap-0.5 py-2 px-3 min-w-0 flex-1 transition-colors cursor-pointer border-none font-sans bg-transparent"
-              style={{ color: 'var(--text-3)' }}
+            <Link
+              key={item.href}
+              to={item.href}
+              aria-current={isActive ? 'page' : undefined}
+              className={`relative flex flex-1 flex-col items-center justify-center gap-1 pt-2.5 pb-2 px-1 min-w-0 no-underline active:opacity-70 transition-opacity`}
             >
+              {isActive && (
+                <span className="absolute top-0 left-1/2 -translate-x-1/2 h-[2px] w-8 rounded-full bg-accent" />
+              )}
+              <span className={`relative w-10 h-7 rounded-full flex items-center justify-center transition-colors ${
+                isActive ? 'bg-accent-dim text-accent' : 'text-text-3'
+              }`}>
+                <svg
+                  width="20" height="20" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" strokeWidth={isActive ? 2.2 : 1.8}
+                  strokeLinecap="round" strokeLinejoin="round"
+                  dangerouslySetInnerHTML={{ __html: icons[item.icon] || '' }}
+                />
+                {!!item.badge && item.badge > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 min-w-[15px] h-[15px] px-1 rounded-full bg-accent text-accent-contrast text-[9px] font-bold flex items-center justify-center">
+                    {item.badge > 9 ? '9+' : item.badge}
+                  </span>
+                )}
+              </span>
+              <span className={`${labelClass} font-semibold leading-none truncate max-w-full px-0.5 ${
+                isActive ? 'text-accent' : 'text-text-3'
+              }`}>
+                {item.label}
+              </span>
+            </Link>
+          )
+        })}
+
+        {onMore && (
+          <button
+            type="button"
+            onClick={onMore}
+            aria-label="Más secciones"
+            aria-expanded={moreActive}
+            className="relative flex flex-1 flex-col items-center justify-center gap-1 pt-2.5 pb-2 px-1 min-w-0 bg-transparent border-none cursor-pointer font-sans"
+          >
+            {moreActive && (
+              <span className="absolute top-0 left-1/2 -translate-x-1/2 h-[2px] w-8 rounded-full bg-accent" />
+            )}
+            <span className={`w-10 h-7 rounded-full flex items-center justify-center transition-colors ${
+              moreActive ? 'bg-accent-dim text-accent' : 'text-text-3'
+            }`}>
               <svg
                 width="20" height="20" viewBox="0 0 24 24" fill="none"
-                stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"
-                dangerouslySetInnerHTML={{ __html: iconPaths[item.icon] || '' }}
+                stroke="currentColor" strokeWidth={moreActive ? 2.2 : 1.8}
+                strokeLinecap="round" strokeLinejoin="round"
+                dangerouslySetInnerHTML={{ __html: icons.more || '' }}
               />
-              <span className="text-[10px] font-medium leading-tight">{item.label}</span>
-            </button>
-          )
-        }
-
-        return (
-          <Link
-            key={item.href}
-            to={item.href || '#'}
-            className={`flex flex-col items-center gap-0.5 py-2 px-3 min-w-0 flex-1 transition-colors no-underline ${
-              isActive ? 'text-accent' : 'text-text-3'
-            }`}
-          >
-            <svg
-              width="20" height="20" viewBox="0 0 24 24" fill="none"
-              stroke="currentColor" strokeWidth={isActive ? 2.2 : 1.8}
-              strokeLinecap="round" strokeLinejoin="round"
-              dangerouslySetInnerHTML={{ __html: iconPaths[item.icon] || '' }}
-            />
-            <span className="text-[10px] font-medium leading-tight">{item.label}</span>
-          </Link>
-        )
-      })}
+            </span>
+            <span className={`${labelClass} font-semibold leading-none truncate max-w-full px-0.5 ${
+              moreActive ? 'text-accent' : 'text-text-3'
+            }`}>
+              Más
+            </span>
+          </button>
+        )}
+      </div>
     </nav>
   )
 }

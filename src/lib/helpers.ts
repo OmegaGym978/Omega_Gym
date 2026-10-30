@@ -19,7 +19,7 @@ export function daysDiff(d: string | null) {
 }
 
 const AVATAR_COLORS = [
-  { bg: 'rgba(59,130,246,0.15)', fg: '#60a5fa' },
+  { bg: 'var(--accent-dim)', fg: 'var(--accent)' },
   { bg: 'rgba(16,185,129,0.15)', fg: '#34d399' },
   { bg: 'rgba(244,114,182,0.15)', fg: '#f472b6' },
   { bg: 'rgba(168,85,247,0.15)', fg: '#c084fc' },

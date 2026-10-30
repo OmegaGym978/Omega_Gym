@@ -13,15 +13,15 @@ interface TabBarProps {
 
 export function TabBar({ tabs, active, onChange }: TabBarProps) {
   return (
-    <div className="flex gap-1 overflow-x-auto">
+    <div className="flex gap-1.5 overflow-x-auto">
       {tabs.map((tab) => (
         <button
           key={tab.key}
           onClick={() => onChange(tab.key)}
-          className={`px-3.5 py-[10px] rounded-sm text-xs font-medium whitespace-nowrap cursor-pointer font-sans transition-all duration-150
+          className={`px-4 py-2 rounded-full text-[12px] font-semibold whitespace-nowrap cursor-pointer font-sans transition-opacity active:opacity-70
             ${active === tab.key
-              ? 'bg-accent text-black'
-              : 'bg-transparent text-text-2 border border-border hover:bg-surface2'
+              ? 'bg-accent text-accent-contrast'
+              : 'bg-surface2 text-text-2'
             }`}
         >
           {tab.label}

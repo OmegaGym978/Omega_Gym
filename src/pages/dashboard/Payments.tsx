@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/atoms/Button';
 import { Badge } from '@/components/ui/atoms/Badge';
 import { IconButton } from '@/components/ui/atoms/IconButton';
 import { LoadingSpinner } from '@/components/ui/atoms/LoadingSpinner';
-import { PageHeader } from '@/components/ui/molecules/PageHeader';
+import { ScreenHeader } from '@/components/ui/layout/ScreenHeader';
 import { SearchInput } from '@/components/ui/molecules/SearchInput';
 import { TabBar } from '@/components/ui/molecules/TabBar';
 import { Pagination } from '@/components/ui/molecules/Pagination';
@@ -39,7 +39,7 @@ interface Payment {
 }
 
 const METHOD_LABELS: Record<PaymentMethod, string> = { cash: 'Efectivo', card: 'Tarjeta', transfer: 'Transferencia' };
-const METHOD_COLORS: Record<PaymentMethod, string> = { cash: 'var(--green-text)', card: 'var(--blue-text)', transfer: 'var(--amber-text)' };
+const METHOD_COLORS: Record<PaymentMethod, string> = { cash: 'var(--green-text)', card: 'var(--teal-text)', transfer: 'var(--amber-text)' };
 
 type FilterKey = 'all' | PaymentStatus;
 
@@ -277,25 +277,10 @@ export default function PaymentsPage() {
 
   return (
     <>
-      <header className="px-4 sm:px-7 h-14 flex items-center justify-between border-b border-border bg-surface2 sticky top-0 z-9">
-        <div className="flex items-center gap-2 text-xs sm:text-[13px] text-text-3">
-          <div className="w-4 h-4 shrink-0 flex items-center justify-center"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-full h-full" width="16" height="16"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></div>
-          <span className="text-text-4 mx-0.5">/</span>
-          <span className="font-medium text-text-1">Pagos</span>
-        </div>
-        <div />
-      </header>
+      <ScreenHeader title="Pagos" subtitle={`Pagos y transacciones de ${monthLabel}`} wide />
 
-      <div className="p-4 sm:p-7 flex-1">
-        <div className="relative mb-7 overflow-hidden rounded-xl bg-gradient-to-br from-surface to-surface2 border border-border p-5 sm:p-7">
-          <div className="absolute inset-0 opacity-[0.04]"
-            style={{ background: 'radial-gradient(600px circle at 20% 30%, var(--accent), transparent)' }} />
-          <div className="relative">
-            <PageHeader title="Pagos" description={`Pagos y transacciones de ${monthLabel}`} />
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-3 mb-6 lg:grid-cols-2">
+      <div className="px-4 sm:px-6 py-4 flex-1 mx-auto w-full max-w-[1100px]">
+        <div className="grid grid-cols-2 gap-3 mb-6">
           <div className="animate-slide-up stagger-1">
             <MetricCard icon={
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-full h-full"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18" /><polyline points="17 6 23 6 23 12" /></svg>
@@ -314,7 +299,7 @@ export default function PaymentsPage() {
             if (viewMonth === 0) { setViewYear(viewYear - 1); setViewMonth(11); }
             else setViewMonth(viewMonth - 1);
             setCurrentPage(1);
-          }} className="w-7 h-7 flex items-center justify-center rounded hover:bg-surface2 transition-colors text-text-3 hover:text-text-1" title="Mes anterior">
+          }} className="w-7 h-7 flex items-center justify-center rounded bg-surface2 transition-colors text-text-3" title="Mes anterior">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4"><polyline points="15 18 9 12 15 6" /></svg>
           </button>
           <span className="text-[13px] font-medium text-text-1 capitalize min-w-[140px] text-center">{monthLabel}</span>
@@ -322,7 +307,7 @@ export default function PaymentsPage() {
             if (viewMonth === 11) { setViewYear(viewYear + 1); setViewMonth(0); }
             else setViewMonth(viewMonth + 1);
             setCurrentPage(1);
-          }} className="w-7 h-7 flex items-center justify-center rounded hover:bg-surface2 transition-colors text-text-3 hover:text-text-1" title="Mes siguiente">
+          }} className="w-7 h-7 flex items-center justify-center rounded bg-surface2 transition-colors text-text-3" title="Mes siguiente">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4"><polyline points="9 18 15 12 9 6" /></svg>
           </button>
         </div>
@@ -339,10 +324,10 @@ export default function PaymentsPage() {
         )}
 
         {!loading && !error && (
-          <div className="animate-slide-up stagger-5 bg-surface border border-border rounded overflow-hidden">
+          <div className="animate-slide-up stagger-5 bg-surface  rounded overflow-hidden">
             <div className="px-3 sm:px-5 py-3 sm:py-4 border-b border-border">
               <div className="flex items-center gap-2.5">
-                <div className="w-7 h-7 rounded-lg bg-amber-bg text-amber-text flex items-center justify-center">
+                <div className="w-7 h-7 rounded-2xl bg-amber-bg text-amber-text flex items-center justify-center">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2"/></svg>
                 </div>
                 <div>
@@ -425,7 +410,7 @@ export default function PaymentsPage() {
           <div className="flex flex-col items-center py-10 gap-4">
             <div className="w-[64px] h-[64px] rounded-full bg-surface2 animate-pulse" />
             <div className="w-32 h-4 rounded bg-surface2 animate-pulse" />
-            <div className="w-20 h-5 rounded-sm bg-surface2 animate-pulse" />
+            <div className="w-20 h-5 rounded-2xl bg-surface2 animate-pulse" />
             <div className="w-full space-y-3 mt-4">
               <div className="h-4 rounded bg-surface2 animate-pulse" />
               <div className="h-4 w-2/3 rounded bg-surface2 animate-pulse" />
@@ -446,7 +431,7 @@ export default function PaymentsPage() {
               </div>
               <div className="text-[17px] font-semibold">{previewMember.full_name}</div>
               <div className="mt-1.5">
-                {previewMember.role === 'member' ? <Badge variant="blue" dot>Miembro</Badge> : previewMember.role === 'trainer' ? <Badge variant="purple" dot>Entrenador</Badge> : <Badge variant="accent" dot>Admin</Badge>}
+                {previewMember.role === 'member' ? <Badge variant="gray" dot>Miembro</Badge> : previewMember.role === 'trainer' ? <Badge variant="purple" dot>Entrenador</Badge> : <Badge variant="accent" dot>Admin</Badge>}
               </div>
             </div>
 
@@ -599,10 +584,10 @@ export default function PaymentsPage() {
                   <button
                     key={val}
                     onClick={() => setEditStatus(val)}
-                    className={`flex flex-col items-center gap-1.5 px-2 py-3 rounded-sm border text-center transition-all duration-150 ${
+                    className={`flex flex-col items-center gap-1.5 px-2 py-3 rounded-2xl border text-center transition-all duration-150 ${
                       editStatus === val
                         ? 'border-' + color + ' bg-' + color + '-dim'
-                        : 'border-border2 bg-surface2 hover:border-text-3'
+                        : 'border-border2 bg-surface2'
                     }`}
                     style={{
                       borderColor: editStatus === val ? `var(--${color})` : undefined,

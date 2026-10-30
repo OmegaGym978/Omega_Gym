@@ -77,7 +77,7 @@ export default function RegisterPage() {
 
   if (verifyPending) {
     return (
-      <div className="bg-surface border border-border rounded p-8">
+      <div className="bg-surface  rounded-3xl p-8">
         <div className="mb-6">
           <div className="text-[18px] font-semibold">Revisa tu bandeja de entrada</div>
           <div className="text-[12px] text-text-3 mt-1">Verificación de correo pendiente</div>
@@ -93,7 +93,7 @@ export default function RegisterPage() {
         </div>
         <div className="flex flex-col gap-3 mt-6">
           <button type="button" onClick={handleResend} disabled={resending}
-            className="w-full py-[11px] rounded-sm border-none text-[14px] font-semibold cursor-pointer font-sans bg-accent text-black disabled:opacity-60">
+            className="w-full py-[11px] rounded-full border-none text-[14px] font-semibold cursor-pointer font-sans bg-accent text-accent-contrast disabled:opacity-60">
             {resending ? 'Reenviando...' : 'Reenviar correo'}
           </button>
           <Link to="/login"
@@ -106,7 +106,7 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="bg-surface border border-border rounded p-8">
+    <div className="bg-surface  rounded-3xl p-8">
       <div className="mb-6">
         <div className="text-[18px] font-semibold">Crear cuenta</div>
         <div className="text-[12px] text-text-3 mt-1">Regístrate en el sistema del gimnasio</div>
@@ -124,18 +124,18 @@ export default function RegisterPage() {
         <div>
           <label className="block text-[12px] font-medium text-text-2 mb-1.5">Nombre completo</label>
           <input type="text" placeholder="Tu nombre" value={name} onChange={(e) => setName(e.target.value)}
-            className="w-full bg-bg border border-border text-text text-[13px] px-3.5 py-2.5 rounded-sm outline-none font-sans" />
+            className="w-full bg-surface border-none text-text text-[17px] px-4 py-4 rounded-2xl outline-none font-sans focus:ring-2 focus:ring-accent/40 placeholder:text-text-3" />
         </div>
         <div>
           <label className="block text-[12px] font-medium text-text-2 mb-1.5">Correo electrónico</label>
           <input type="email" placeholder="tu@correo.com" value={email} onChange={(e) => setEmail(e.target.value)}
-            className="w-full bg-bg border border-border text-text text-[13px] px-3.5 py-2.5 rounded-sm outline-none font-sans" />
+            className="w-full bg-surface border-none text-text text-[17px] px-4 py-4 rounded-2xl outline-none font-sans focus:ring-2 focus:ring-accent/40 placeholder:text-text-3" />
         </div>
         <div>
           <label className="block text-[12px] font-medium text-text-2 mb-1.5">Contraseña</label>
           <div className="relative">
             <input type={showPw ? 'text' : 'password'} placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)}
-              className="w-full bg-bg border border-border text-text text-[13px] px-3.5 py-2.5 rounded-sm outline-none font-sans" />
+              className="w-full bg-surface border-none text-text text-[17px] px-4 py-4 rounded-2xl outline-none font-sans focus:ring-2 focus:ring-accent/40 placeholder:text-text-3" />
             <button type="button" onClick={() => setShowPw(!showPw)}
               className="absolute right-2.5 top-1/2 -translate-y-1/2 bg-none border-none text-text-3 cursor-pointer text-[11px] font-sans">
               {showPw ? 'Ocultar' : 'Mostrar'}
@@ -146,7 +146,7 @@ export default function RegisterPage() {
           <label className="block text-[12px] font-medium text-text-2 mb-1.5">Confirmar contraseña</label>
           <div className="relative">
             <input type={showConfirmPw ? 'text' : 'password'} placeholder="••••••••" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)}
-              className="w-full bg-bg border border-border text-text text-[13px] px-3.5 py-2.5 rounded-sm outline-none font-sans" />
+              className="w-full bg-surface border-none text-text text-[17px] px-4 py-4 rounded-2xl outline-none font-sans focus:ring-2 focus:ring-accent/40 placeholder:text-text-3" />
             <button type="button" onClick={() => setShowConfirmPw(!showConfirmPw)}
               className="absolute right-2.5 top-1/2 -translate-y-1/2 bg-none border-none text-text-3 cursor-pointer text-[11px] font-sans">
               {showConfirmPw ? 'Ocultar' : 'Mostrar'}
@@ -154,8 +154,8 @@ export default function RegisterPage() {
           </div>
         </div>
         <button type="submit" disabled={submitting}
-          className={`w-full py-[11px] rounded-sm border-none text-[14px] font-semibold cursor-pointer font-sans mt-1
-            ${submitting ? 'bg-accent-dim text-black/60' : 'bg-accent text-black'}`}>
+          className={`w-full py-[11px] rounded-full border-none text-[14px] font-semibold cursor-pointer font-sans mt-1
+            ${submitting ? 'bg-accent-dim text-text-3' : 'bg-accent text-accent-contrast'}`}>
           {submitting ? 'Registrando...' : 'Crear cuenta'}
         </button>
       </form>

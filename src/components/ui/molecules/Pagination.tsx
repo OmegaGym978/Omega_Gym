@@ -48,9 +48,9 @@ export function Pagination({
             <button
               key={p}
               onClick={() => onChange(p)}
-              className={`min-w-[32px] h-8 rounded-sm text-xs flex items-center justify-center cursor-pointer font-sans px-2
+              className={`min-w-[32px] h-8 rounded-full text-xs flex items-center justify-center cursor-pointer font-sans px-2
                 ${p === current
-                  ? 'bg-accent text-black font-semibold'
+                  ? 'bg-accent text-accent-contrast font-semibold'
                   : 'bg-transparent text-text-2 border border-border'
                 }`}
             >

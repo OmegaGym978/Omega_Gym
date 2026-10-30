@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 
-type BadgeVariant = 'green' | 'amber' | 'red' | 'accent' | 'gray' | 'blue' | 'purple' | 'pink';
+type BadgeVariant = 'green' | 'amber' | 'red' | 'accent' | 'gray' | 'teal' | 'purple' | 'pink';
 
 interface BadgeProps {
   variant?: BadgeVariant;
@@ -15,25 +15,26 @@ const variantStyles: Record<BadgeVariant, string> = {
   red: 'bg-red-bg text-red-text',
   accent: 'bg-accent-dim text-accent',
   gray: 'bg-surface2 text-text-3 border border-border',
-  blue: 'bg-[rgba(59,130,246,0.12)] text-[#60a5fa]',
-  purple: 'bg-[rgba(168,85,247,0.1)] text-[#c084fc]',
-  pink: 'bg-[rgba(236,72,153,0.1)] text-[#f472b6]',
+  teal: 'bg-teal-bg text-teal-text',
+  purple: 'bg-purple-bg text-purple-text',
+  pink: 'bg-pink-bg text-pink-text',
 };
 
-const dotColors: Record<string, string> = {
+const dotColors: Record<BadgeVariant, string> = {
   green: 'bg-green',
   amber: 'bg-amber',
   red: 'bg-red',
   accent: 'bg-accent',
   gray: 'bg-text-3',
-  blue: 'bg-[#60a5fa]',
-  purple: 'bg-[#c084fc]',
+  teal: 'bg-teal',
+  purple: 'bg-purple',
+  pink: 'bg-pink',
 };
 
 export function Badge({ variant = 'gray', dot, children, className = '' }: BadgeProps) {
   return (
     <span
-      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${variantStyles[variant]} ${className}`}
+      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold ${variantStyles[variant]} ${className}`}
     >
       {dot && <span className={`w-1.5 h-1.5 rounded-full ${dotColors[variant]}`} />}
       {children}

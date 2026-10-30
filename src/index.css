@@ -2,150 +2,196 @@
 @import "tailwindcss";
 
 @theme {
-  --color-surface: #181818;
-  --color-surface2: #212121;
-  --color-border: rgba(255, 255, 255, 0.07);
-  --color-border2: rgba(255, 255, 255, 0.12);
-  --color-text: #f0f0f0;
-  --color-text-2: #a0a0a0;
-  --color-text-3: #606060;
+  /* ---- Superficies (móvil nativo, negro puro + zinc) ---- */
+  --color-bg: #000000;
+  --color-surface: #18181b;
+  --color-surface2: #27272a;
+  --color-surface3: #3f3f46;
+  --color-surface4: #52525b;
+
+  /* ---- Bordes y separadores ---- */
+  --color-border: rgba(255, 255, 255, 0.08);
+  --color-border2: rgba(255, 255, 255, 0.14);
+  --color-divider: #27272a;
+
+  /* ---- Texto ---- */
+  --color-text: #fafafa;
+  --color-text-1: #fafafa;
+  --color-text-2: #a1a1aa;
+  --color-text-3: #71717a;
+  --color-text-4: #52525b;
+
+  /* ---- Acento (coral por defecto; intercambiable con data-accent) ---- */
   --color-accent: #e85d5d;
-  --color-accent-dim: rgba(232, 93, 93, 0.12);
+  --color-accent-dim: rgba(232, 93, 93, 0.16);
   --color-accent-text: #f08989;
+  --color-accent-contrast: #ffffff;
+
+  /* ---- Semánticos ---- */
   --color-green: #22c55e;
-  --color-green-bg: rgba(34, 197, 94, 0.1);
+  --color-green-bg: rgba(34, 197, 94, 0.12);
   --color-green-text: #4ade80;
   --color-amber: #f59e0b;
-  --color-amber-bg: rgba(245, 158, 11, 0.1);
+  --color-amber-bg: rgba(245, 158, 11, 0.12);
   --color-amber-text: #fbbf24;
   --color-red: #ef4444;
-  --color-red-bg: rgba(239, 68, 68, 0.1);
+  --color-red-bg: rgba(239, 68, 68, 0.12);
   --color-red-text: #f87171;
-  --color-blue: #3b82f6;
-  --color-blue-bg: rgba(59, 130, 246, 0.15);
-  --color-blue-text: #60a5fa;
+  --color-teal: #2dd4bf;
+  --color-teal-bg: rgba(45, 212, 191, 0.12);
+  --color-teal-text: #5eead4;
   --color-purple: #a855f7;
-  --color-purple-bg: rgba(168, 85, 247, 0.15);
+  --color-purple-bg: rgba(168, 85, 247, 0.12);
   --color-purple-text: #c084fc;
   --color-pink: #ec4899;
-  --color-pink-bg: rgba(236, 72, 153, 0.15);
+  --color-pink-bg: rgba(236, 72, 153, 0.12);
   --color-pink-text: #f472b6;
-  --color-gray-bg: rgba(255, 255, 255, 0.05);
-  --color-gray-text: #707070;
+  --color-gray-bg: rgba(255, 255, 255, 0.06);
+  --color-gray-text: #8b8b93;
+
+  /* ---- Tipografía ---- */
   --font-sans: "JetBrains Mono", ui-monospace, monospace;
   --font-mono: "JetBrains Mono", ui-monospace, monospace;
   --font-display: "JetBrains Mono", ui-monospace, monospace;
-  --color-bg: #0f0f0f;
-  --radius: 0.375rem;
-  --radius-sm: 0.25rem;
+
+  /* ---- Radios ---- */
+  --radius: 1rem;
+  --radius-sm: 0.75rem;
+  --radius-card: 1.25rem;
+  --radius-sheet: 1.5rem;
+}
+
+/* ------------------------------------------------------------------
+   Acento intercambiable. Los utilities de Tailwind apuntan a
+   var(--color-accent*), así que basta con sobrescribir los tokens.
+   ------------------------------------------------------------------ */
+:root {
+  --accent: var(--color-accent);
+  --accent-dim: var(--color-accent-dim);
+  --accent-text: var(--color-accent-text);
+  --accent-contrast: var(--color-accent-contrast);
+  --accent-rgb: 232, 93, 93;
+
+  --bg: var(--color-bg);
+  --surface: var(--color-surface);
+  --surface2: var(--color-surface2);
+  --surface3: var(--color-surface3);
+  --surface4: var(--color-surface4);
+  --border: var(--color-border);
+  --border2: var(--color-border2);
+  --divider: var(--color-divider);
+  --text: var(--color-text);
+  --text-2: var(--color-text-2);
+  --text-3: var(--color-text-3);
+  --text-4: var(--color-text-4);
+
+  --sidebar-w: 264px;
+  --logo-bg: #000000;
+  --logo-omega: var(--color-accent);
+  --logo-border: rgba(var(--accent-rgb), 0.35);
+
+  color-scheme: dark;
+}
+
+[data-accent="ember"] {
+  --color-accent: #f4511e;
+  --color-accent-dim: rgba(244, 81, 30, 0.16);
+  --color-accent-text: #ff8a65;
+  --color-accent-contrast: #ffffff;
+  --accent-rgb: 244, 81, 30;
+}
+
+[data-accent="violet"] {
+  --color-accent: #a78bfa;
+  --color-accent-dim: rgba(167, 139, 250, 0.16);
+  --color-accent-text: #c4b5fd;
+  --color-accent-contrast: #09090b;
+  --accent-rgb: 167, 139, 250;
+}
+
+[data-accent="teal"] {
+  --color-accent: #2dd4bf;
+  --color-accent-dim: rgba(45, 212, 191, 0.16);
+  --color-accent-text: #5eead4;
+  --color-accent-contrast: #09090b;
+  --accent-rgb: 45, 212, 191;
+}
+
+[data-accent="lime"] {
+  --color-accent: #a3e635;
+  --color-accent-dim: rgba(163, 230, 53, 0.16);
+  --color-accent-text: #bef264;
+  --color-accent-contrast: #09090b;
+  --accent-rgb: 163, 230, 53;
+}
+
+[data-accent="amber"] {
+  --color-accent: #f59e0b;
+  --color-accent-dim: rgba(245, 158, 11, 0.16);
+  --color-accent-text: #fbbf24;
+  --color-accent-contrast: #09090b;
+  --accent-rgb: 245, 158, 11;
+}
+
+/* ---- Tema claro: solo cambian los neutros; el acento elegido se respeta ---- */
+[data-theme="light"] {
+  --color-bg: #f4f4f5;
+  --color-surface: #ffffff;
+  --color-surface2: #f4f4f5;
+  --color-surface3: #e4e4e7;
+  --color-surface4: #d4d4d8;
+  --color-border: rgba(0, 0, 0, 0.08);
+  --color-border2: rgba(0, 0, 0, 0.14);
+  --color-divider: #e4e4e7;
+  --color-text: #09090b;
+  --color-text-1: #09090b;
+  --color-text-2: #52525b;
+  --color-text-3: #71717a;
+  --color-text-4: #a1a1aa;
+  --color-gray-bg: rgba(0, 0, 0, 0.05);
+  --color-gray-text: #71717a;
+
+  --bg: var(--color-bg);
+  --surface: var(--color-surface);
+  --surface2: var(--color-surface2);
+  --surface3: var(--color-surface3);
+  --surface4: var(--color-surface4);
+  --border: var(--color-border);
+  --border2: var(--color-border2);
+  --divider: var(--color-divider);
+  --text: var(--color-text);
+  --text-2: var(--color-text-2);
+  --text-3: var(--color-text-3);
+  --text-4: var(--color-text-4);
+
+  --logo-bg: #ffffff;
+
+  color-scheme: light;
 }
 
 * { box-sizing: border-box; }
 
+html {
+  -webkit-tap-highlight-color: transparent;
+  background: var(--color-bg);
+}
+
 body {
   margin: 0;
+  min-height: 100dvh;
   color: var(--color-text);
   background: var(--color-bg);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  overscroll-behavior-y: none;
 }
 
-:root {
-  --surface: #181818;
-  --surface2: #212121;
-  --border: rgba(255, 255, 255, 0.07);
-  --border2: rgba(255, 255, 255, 0.12);
-  --text: #f0f0f0;
-  --text-2: #a0a0a0;
-  --text-3: #606060;
-  --accent: #e85d5d;
-  --accent-dim: rgba(232, 93, 93, 0.12);
-  --accent-rgb: 232, 93, 93;
-  --accent-text: #f08989;
-  --bg: #0f0f0f;
-  --green: #22c55e;
-  --green-bg: rgba(34, 197, 94, 0.1);
-  --green-text: #4ade80;
-  --amber: #f59e0b;
-  --amber-bg: rgba(245, 158, 11, 0.1);
-  --amber-text: #fbbf24;
-  --red: #ef4444;
-  --red-bg: rgba(239, 68, 68, 0.1);
-  --red-text: #f87171;
-  --blue: #3b82f6;
-  --blue-bg: rgba(59, 130, 246, 0.15);
-  --blue-text: #60a5fa;
-  --purple: #a855f7;
-  --purple-bg: rgba(168, 85, 247, 0.15);
-  --purple-text: #c084fc;
-  --pink: #ec4899;
-  --pink-bg: rgba(236, 72, 153, 0.15);
-  --pink-text: #f472b6;
-  --gray-bg: rgba(255, 255, 255, 0.05);
-  --gray-text: #707070;
-  --sidebar-w: 220px;
-  --logo-bg: #0f0f0f;
-  --logo-omega: #ff2d2d;
-  --logo-border: rgba(255,45,45,0.35);
-}
-
-[data-theme="light"] {
-  --color-bg: #f4f4f4;
-  --color-surface: #ffffff;
-  --color-surface2: #e8e8e8;
-  --color-border: rgba(0, 0, 0, 0.07);
-  --color-border2: rgba(0, 0, 0, 0.12);
-  --color-text: #111111;
-  --color-text-2: #555555;
-  --color-text-3: #888888;
-  --color-accent: #d94444;
-  --color-accent-dim: rgba(217, 68, 68, 0.1);
-  --color-accent-text: #b83333;
-  --color-green-bg: rgba(34, 197, 94, 0.08);
-  --color-green-text: #16a34a;
-  --color-amber-bg: rgba(245, 158, 11, 0.08);
-  --color-amber-text: #ca8a04;
-  --color-red-bg: rgba(239, 68, 68, 0.08);
-  --color-red-text: #dc2626;
-  --color-blue-bg: rgba(59, 130, 246, 0.08);
-  --color-blue-text: #2563eb;
-  --color-purple-bg: rgba(168, 85, 247, 0.08);
-  --color-purple-text: #9333ea;
-  --color-pink-bg: rgba(236, 72, 153, 0.08);
-  --color-pink-text: #db2777;
-  --color-gray-bg: rgba(0, 0, 0, 0.04);
-  --color-gray-text: #888888;
-
-  --bg: #f4f4f4;
-  --surface: #ffffff;
-  --surface2: #e8e8e8;
-  --border: rgba(0, 0, 0, 0.07);
-  --border2: rgba(0, 0, 0, 0.12);
-  --text: #111111;
-  --text-2: #555555;
-  --text-3: #888888;
-  --accent: #d94444;
-  --accent-dim: rgba(217, 68, 68, 0.1);
-  --accent-rgb: 217, 68, 68;
-  --accent-text: #b83333;
-  --green-bg: rgba(34, 197, 94, 0.08);
-  --green-text: #16a34a;
-  --amber-bg: rgba(245, 158, 11, 0.08);
-  --amber-text: #ca8a04;
-  --red-bg: rgba(239, 68, 68, 0.08);
-  --red-text: #dc2626;
-  --blue-bg: rgba(59, 130, 246, 0.08);
-  --blue-text: #2563eb;
-  --purple-bg: rgba(168, 85, 247, 0.08);
-  --purple-text: #9333ea;
-  --pink-bg: rgba(236, 72, 153, 0.08);
-  --pink-text: #db2777;
-  --gray-bg: rgba(0, 0, 0, 0.04);
-  --gray-text: #888888;
-  --logo-bg: #ffffff;
-  --logo-omega: #d94444;
-  --logo-border: rgba(217,68,68,0.25);
+/* En iOS, cualquier input por debajo de 16px provoca zoom al enfocar. */
+@media (max-width: 640px) {
+  input, textarea, select {
+    font-size: 16px !important;
+  }
 }
 
 ::-webkit-scrollbar { width: 4px; height: 4px; }
@@ -169,7 +215,7 @@ body {
 
 @keyframes glowPulse {
   0%, 100% { box-shadow: 0 0 0 0 rgba(255,255,255,0); }
-  50% { box-shadow: 0 0 12px 2px rgba(232,93,93,0.08); }
+  50% { box-shadow: 0 0 12px 2px rgba(var(--accent-rgb), 0.08); }
 }
 
 .animate-fade-in {
@@ -187,6 +233,11 @@ body {
 .stagger-5 { animation-delay: 320ms; }
 .stagger-6 { animation-delay: 400ms; }
 .stagger-7 { animation-delay: 480ms; }
+.stagger-8 { animation-delay: 560ms; }
+.stagger-9 { animation-delay: 640ms; }
+.stagger-10 { animation-delay: 720ms; }
+.stagger-11 { animation-delay: 800ms; }
+.stagger-12 { animation-delay: 880ms; }
 
 .metric-card-hover {
   transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s ease;
@@ -222,6 +273,24 @@ body {
 
 .animate-modal-in {
   animation: modalIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes sheetIn {
+  from { opacity: 0; transform: translateY(24px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-sheet-in {
+  animation: sheetIn 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes pickerIn {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-picker-in {
+  animation: pickerIn 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 .animate-glow-in {
@@ -265,12 +334,6 @@ body {
   transform: scaleX(1);
 }
 
-.stagger-8 { animation-delay: 560ms; }
-.stagger-9 { animation-delay: 640ms; }
-.stagger-10 { animation-delay: 720ms; }
-.stagger-11 { animation-delay: 800ms; }
-.stagger-12 { animation-delay: 880ms; }
-
 .noise-overlay::before {
   content: '';
   position: fixed;
@@ -289,4 +352,13 @@ body {
 img[src*="/exercises/gifs/"],
 img[src*="/exercises/images/"] {
   image-rendering: -webkit-optimize-contrast;
+}
+
+/* Áreas seguras de iOS */
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.safe-top {
+  padding-top: env(safe-area-inset-top, 0px);
 }

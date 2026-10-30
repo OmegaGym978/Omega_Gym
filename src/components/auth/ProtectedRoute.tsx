@@ -13,7 +13,7 @@ export function ProtectedRoute({ children, roles }: Props) {
 
   if (!initialized || loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-surface text-text-3 text-sm">
+      <div className="flex items-center justify-center min-h-dvh bg-bg text-text-3 text-sm">
         Cargando...
       </div>
     )

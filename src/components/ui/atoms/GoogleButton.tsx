@@ -5,7 +5,7 @@ export function GoogleButton() {
     <button
       type="button"
       onClick={() => toast.info('Próximamente disponible')}
-      className="w-full flex items-center justify-center gap-3 py-[10px] rounded-sm border border-border bg-bg text-text text-[13px] font-medium cursor-pointer hover:bg-surface2 transition-colors duration-150 font-sans"
+      className="w-full flex items-center justify-center gap-3 py-[10px] rounded-full border border-border bg-bg text-text text-[13px] font-medium cursor-pointer transition-colors duration-150 font-sans"
     >
       <svg width="18" height="18" viewBox="0 0 24 24">
         <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" />
