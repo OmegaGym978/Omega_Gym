@@ -4,6 +4,7 @@ import { exercisesService, type Exercise } from '@/services/exercises.service'
 import { equipmentLabel } from '@/lib/exercise-labels'
 import { BottomSheet } from '@/components/ui/molecules/BottomSheet'
 import { Input, Select, Textarea } from '@/components/ui/atoms/Input'
+import { getErrorMessage } from '@/lib/helpers'
 
 interface Props {
   open: boolean
@@ -27,14 +28,6 @@ export function CreateExerciseSheet({ open, onClose, userId, onCreated }: Props)
 
   useEffect(() => {
     if (!open) return
-    setName('')
-    setMuscle('')
-    setEquipment('')
-    setGifUrl('')
-    setInstructions('')
-    setSaving(false)
-    setTried(false)
-
     Promise.all([exercisesService.getMuscleGroups(), exercisesService.getEquipment()])
       .then(([muscles, equipments]) => {
         setMuscleOptions(muscles)
@@ -65,8 +58,8 @@ export function CreateExerciseSheet({ open, onClose, userId, onCreated }: Props)
       toast.success('Ejercicio creado')
       onCreated(exercise)
       onClose()
-    } catch (e: any) {
-      toast.error('No se pudo crear el ejercicio: ' + (e?.message || 'intenta de nuevo'))
+    } catch (e) {
+      toast.error('No se pudo crear el ejercicio: ' + getErrorMessage(e, 'intenta de nuevo'))
     } finally {
       setSaving(false)
     }

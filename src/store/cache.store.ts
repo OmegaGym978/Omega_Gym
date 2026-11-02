@@ -33,8 +33,9 @@ export const useCacheStore = create<CacheState>((set, get) => ({
     const ttl = TTL[key] ?? DEFAULT_TTL
     if (Date.now() - entry.timestamp > ttl) {
       set(state => {
-        const { [key]: _, ...rest } = state.entries
-        return { entries: rest }
+        const entries = { ...state.entries }
+        delete entries[key]
+        return { entries }
       })
       return null
     }
@@ -49,8 +50,9 @@ export const useCacheStore = create<CacheState>((set, get) => ({
 
   invalidate: (key: string) => {
     set(state => {
-      const { [key]: _, ...rest } = state.entries
-      return { entries: rest }
+      const entries = { ...state.entries }
+      delete entries[key]
+      return { entries }
     })
   },
 

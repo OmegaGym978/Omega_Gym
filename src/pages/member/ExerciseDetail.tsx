@@ -14,6 +14,8 @@ import { ListGroup } from '@/components/ui/molecules/ListGroup'
 import { ListTile } from '@/components/ui/molecules/ListTile'
 import { ConfirmSheet } from '@/components/ui/molecules/ConfirmSheet'
 import { ActivityChart } from '@/components/profile/ActivityChart'
+import { PageContainer } from '@/components/ui/layout/PageContainer'
+import { getErrorMessage } from '@/lib/helpers'
 
 type Tab = 'resumen' | 'historial' | 'indicaciones'
 type Metric = 'weight' | 'oneRm' | 'volume'
@@ -143,8 +145,8 @@ export default function ExerciseDetailPage() {
     setRoutinesLoading(true)
     try {
       setRoutines(await routinesService.getMine(user.id))
-    } catch (e: any) {
-      toast.error('No se pudieron cargar tus rutinas: ' + e.message)
+    } catch (e) {
+      toast.error('No se pudieron cargar tus rutinas: ' + getErrorMessage(e))
       setRoutines([])
     } finally {
       setRoutinesLoading(false)
@@ -186,8 +188,8 @@ export default function ExerciseDetailPage() {
       await trainingService.upsertExercises(planId, payload)
       toast.success('Ejercicio agregado a la rutina')
       setAddOpen(false)
-    } catch (e: any) {
-      toast.error('No se pudo agregar: ' + e.message)
+    } catch (e) {
+      toast.error('No se pudo agregar: ' + getErrorMessage(e))
     }
   }
 
@@ -197,8 +199,8 @@ export default function ExerciseDetailPage() {
       await exercisesService.deleteCustom(exercise.id)
       toast.success('Ejercicio eliminado')
       navigate('/my-profile/exercises', { replace: true })
-    } catch (e: any) {
-      toast.error('No se pudo eliminar: ' + e.message)
+    } catch (e) {
+      toast.error('No se pudo eliminar: ' + getErrorMessage(e))
     }
   }
 
@@ -251,7 +253,7 @@ export default function ExerciseDetailPage() {
               </button>
 
               {menuOpen && (
-                <div className="absolute right-0 top-10 z-30 w-52 bg-surface2 rounded-2xl overflow-hidden shadow-lg">
+                <div className="absolute right-0 top-10 z-30 w-52 bg-surface2 rounded-tile overflow-hidden shadow-lg">
                   <MenuItem label="Agregar a una rutina" onClick={openAddToRoutine} />
                   <MenuItem label="Ver historial" onClick={() => { setTab('historial'); setMenuOpen(false) }} />
                   {isCustom && (
@@ -268,12 +270,12 @@ export default function ExerciseDetailPage() {
         }
       />
 
-      <div className="px-4 sm:px-5 py-4 flex-1 mx-auto w-full max-w-[560px]">
+      <PageContainer className="flex-1">
         {/* Área superior común a las pestañas */}
         {!loading && exercise && (
           <div className="mb-4">
             {image ? (
-              <div className="bg-white rounded-3xl overflow-hidden">
+              <div className="bg-white rounded-card overflow-hidden">
                 <img
                   src={image}
                   alt={exercise.name_es || exercise.name}
@@ -281,7 +283,7 @@ export default function ExerciseDetailPage() {
                 />
               </div>
             ) : (
-              <div className="bg-surface rounded-3xl h-40 flex items-center justify-center text-text-3">
+              <div className="bg-surface rounded-card h-40 flex items-center justify-center text-text-3">
                 <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
                   <path d="M6.5 6.5l11 11M4 9v6M20 9v6M7 7v10M17 7v10" />
                 </svg>
@@ -299,7 +301,7 @@ export default function ExerciseDetailPage() {
         )}
 
         {/* Tabs */}
-        <div className="flex gap-1 border-b border-border overflow-x-auto">
+        <div className="flex gap-1 border-b border-border overflow-x-auto scrollbar-none">
           {TABS.map(item => (
             <button
               key={item.key}
@@ -316,13 +318,13 @@ export default function ExerciseDetailPage() {
 
         {loading ? (
           <div className="mt-4 flex flex-col gap-3">
-            <div className="h-48 rounded-3xl skeleton" />
-            <div className="h-24 rounded-2xl skeleton" />
+            <div className="h-48 rounded-card skeleton" />
+            <div className="h-24 rounded-card skeleton" />
           </div>
         ) : tab === 'resumen' ? (
           <div className="mt-4 flex flex-col gap-4">
             {/* Progreso */}
-            <section className="bg-surface rounded-2xl p-4">
+            <section className="bg-surface rounded-card p-5">
               <div className="flex items-center justify-between mb-3">
                 <div className="text-[13px] font-semibold">Progreso</div>
                 <div className="text-[10px] uppercase tracking-[0.08em] text-text-3 font-bold">
@@ -331,7 +333,7 @@ export default function ExerciseDetailPage() {
               </div>
 
               {statsLoading ? (
-                <div className="h-[132px] rounded-2xl skeleton" />
+                <div className="h-[132px] rounded-card skeleton" />
               ) : stats.points.length === 0 ? (
                 <div className="h-[132px] flex flex-col items-center justify-center gap-2">
                   <div className="w-11 h-11 rounded-full bg-surface2 text-text-3 flex items-center justify-center">
@@ -347,7 +349,7 @@ export default function ExerciseDetailPage() {
             </section>
 
             {/* Métricas */}
-            <div className="flex gap-2 overflow-x-auto">
+            <div className="flex gap-2 overflow-x-auto scrollbar-none">
               {METRICS.map(item => (
                 <button
                   key={item.key}
@@ -363,7 +365,7 @@ export default function ExerciseDetailPage() {
             </div>
 
             {/* Récords */}
-            <section className="bg-surface rounded-2xl overflow-hidden">
+            <section className="bg-surface rounded-card overflow-hidden">
               <div className="flex items-center gap-2 px-4 py-3 border-b border-divider">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" className="text-amber-text">
                   <path d="M6 3h12v4a6 6 0 0 1-12 0z" /><path d="M6 5H3v2a4 4 0 0 0 4 4" /><path d="M18 5h3v2a4 4 0 0 1-4 4" /><line x1="12" y1="13" x2="12" y2="19" /><line x1="8" y1="21" x2="16" y2="21" />
@@ -384,10 +386,10 @@ export default function ExerciseDetailPage() {
           <div className="mt-4">
             {statsLoading ? (
               <div className="flex flex-col gap-2">
-                {[0, 1, 2].map(i => <div key={i} className="h-16 rounded-2xl skeleton" />)}
+                {[0, 1, 2].map(i => <div key={i} className="h-16 rounded-tile skeleton" />)}
               </div>
             ) : stats.history.length === 0 ? (
-              <div className="bg-surface rounded-2xl p-10 text-center flex flex-col items-center gap-2">
+              <div className="bg-surface rounded-card p-10 text-center flex flex-col items-center gap-2">
                 <div className="w-12 h-12 rounded-full bg-surface2 text-text-3 flex items-center justify-center">
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
                     <circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" />
@@ -412,7 +414,7 @@ export default function ExerciseDetailPage() {
         ) : (
           <div className="mt-4">
             {steps.length === 0 ? (
-              <div className="bg-surface rounded-2xl p-10 text-center text-[13px] text-text-3">
+              <div className="bg-surface rounded-card p-10 text-center text-[13px] text-text-3">
                 Este ejercicio no tiene indicaciones en el catálogo.
               </div>
             ) : (
@@ -429,7 +431,7 @@ export default function ExerciseDetailPage() {
             )}
           </div>
         )}
-      </div>
+      </PageContainer>
 
       {/* Agregar a rutina */}
       <BottomSheet
@@ -440,7 +442,7 @@ export default function ExerciseDetailPage() {
       >
         {routinesLoading ? (
           <div className="flex flex-col gap-2">
-            {[0, 1, 2].map(i => <div key={i} className="h-16 rounded-2xl skeleton" />)}
+            {[0, 1, 2].map(i => <div key={i} className="h-16 rounded-tile skeleton" />)}
           </div>
         ) : routines.length === 0 ? (
           <div className="text-center py-6">

@@ -8,7 +8,7 @@ interface Props {
 /** Contenedor de celdas agrupadas estilo iOS. */
 export function ListGroup({ children, className = '' }: Props) {
   return (
-    <div className={`bg-surface rounded-2xl overflow-hidden ${className}`}>
+    <div className={`bg-surface rounded-card overflow-hidden ${className}`}>
       {children}
     </div>
   )

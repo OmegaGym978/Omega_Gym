@@ -3,6 +3,7 @@ import { toast } from 'sonner'
 import type { PlanExercise } from '@/services/training.service'
 import { sessionsService, type SessionSetInput } from '@/services/sessions.service'
 import { Checkmark } from '@/components/ui/atoms/Checkmark'
+import { getErrorMessage } from '@/lib/helpers'
 
 interface Props {
   open: boolean
@@ -66,16 +67,11 @@ const INPUT =
  * entrenamiento al finalizar. Si se cierra antes, no se persiste nada.
  */
 export function WorkoutSession({ open, onClose, planName, planId, memberId, exercises, loading, onSaved }: Props) {
-  const [items, setItems] = useState<SessionExercise[]>([])
-  const [startedAt, setStartedAt] = useState<string>(() => new Date().toISOString())
+  // Estado sembrado al montar: los padres remontan con `key` en cada apertura
+  // (y cuando llegan los ejercicios del plan).
+  const [items, setItems] = useState<SessionExercise[]>(() => buildExercises(exercises))
+  const [startedAt] = useState<string>(() => new Date().toISOString())
   const [saving, setSaving] = useState(false)
-
-  useEffect(() => {
-    if (!open) return
-    setItems(buildExercises(exercises))
-    setStartedAt(new Date().toISOString())
-    setSaving(false)
-  }, [open, planName, exercises])
 
   useEffect(() => {
     if (!open) return
@@ -150,8 +146,8 @@ export function WorkoutSession({ open, onClose, planName, planId, memberId, exer
       )
       onSaved?.()
       onClose()
-    } catch (e: any) {
-      toast.error('No se pudo guardar la sesión: ' + (e?.message || 'intenta de nuevo'))
+    } catch (e) {
+      toast.error('No se pudo guardar la sesión: ' + getErrorMessage(e, 'intenta de nuevo'))
     } finally {
       setSaving(false)
     }
@@ -161,7 +157,7 @@ export function WorkoutSession({ open, onClose, planName, planId, memberId, exer
 
   return (
     <div className="fixed inset-0 z-[65] bg-bg flex flex-col animate-picker-in">
-      <header className="shrink-0 px-4 pt-4 pb-3 border-b border-border bg-bg safe-top">
+      <header className="shrink-0 px-4 pt-4 pb-3 bg-bg safe-top">
         <div className="flex items-center justify-between gap-3">
           <button
             onClick={onClose}
@@ -186,8 +182,8 @@ export function WorkoutSession({ open, onClose, planName, planId, memberId, exer
         </div>
       </header>
 
-      <div className="flex-1 overflow-y-auto px-4 py-4 max-w-[720px] mx-auto w-full">
-        <div className="mb-4 flex items-start gap-2 rounded-2xl bg-surface px-3.5 py-3">
+      <div className="flex-1 overflow-y-auto scrollbar-none px-4 py-4 max-w-[720px] mx-auto w-full">
+        <div className="mb-4 flex items-start gap-2 rounded-card bg-surface px-3.5 py-3">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-amber-text shrink-0 mt-0.5">
             <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
           </svg>
@@ -198,7 +194,7 @@ export function WorkoutSession({ open, onClose, planName, planId, memberId, exer
 
         {loading ? (
           <div className="flex flex-col gap-3">
-            {[0, 1, 2].map(i => <div key={i} className="h-28 rounded-2xl skeleton" />)}
+            {[0, 1, 2].map(i => <div key={i} className="h-28 rounded-card skeleton" />)}
           </div>
         ) : items.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
@@ -213,7 +209,7 @@ export function WorkoutSession({ open, onClose, planName, planId, memberId, exer
         ) : (
           <div className="flex flex-col gap-3">
             {items.map((ex, exIndex) => (
-              <article key={ex.key} className="bg-surface rounded-2xl p-4">
+              <article key={ex.key} className="bg-surface rounded-card p-4">
                 <div className="flex items-center gap-3">
                   <div className="w-7 h-7 rounded-full bg-accent-dim text-accent flex items-center justify-center text-[11px] font-bold shrink-0">
                     {exIndex + 1}

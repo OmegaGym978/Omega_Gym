@@ -12,6 +12,8 @@ import { WorkoutSession } from '@/components/workout/WorkoutSession'
 import { ScreenHeader } from '@/components/ui/layout/ScreenHeader'
 import { ScheduleSheet } from '@/components/schedule/ScheduleSheet'
 import { formatSchedule } from '@/lib/dates'
+import { PageContainer } from '@/components/ui/layout/PageContainer'
+import { getErrorMessage } from '@/lib/helpers'
 
 type AssignedPlan = TrainingPlan & {
   creator: { id: string; full_name: string } | null
@@ -25,6 +27,40 @@ function summaryOf(r: RoutineListItem): string {
   if (r.exercise_names.length === 0) return 'Aún sin ejercicios'
   const shown = r.exercise_names.slice(0, 4).join(' · ')
   return r.exercise_names.length > 4 ? `${shown} · …` : shown
+}
+
+/**
+ * Carga de datos sin tocar estado: los effects encadenan la promesa y aplican
+ * el resultado en el callback (regla set-state-in-effect).
+ */
+async function loadRoutinesData(userId: string) {
+  const [mine, assigned] = await Promise.all([
+    routinesService.getMine(userId),
+    trainingService.getByMemberAll(userId),
+  ])
+  return { mine, assigned: assigned as AssignedPlan[] }
+}
+
+/** Detalle de una rutina ya normalizado para el builder. */
+async function loadRoutineEditData(routineId: string): Promise<EditPlanData> {
+  const { routine, exercises } = await routinesService.getDetail(routineId)
+  return {
+    id: routine.id,
+    name: routine.name,
+    description: routine.description,
+    exercises: exercises.map(ex => ({
+      exercise_id: ex.exercise_id,
+      exercise_name: ex.exercise_name,
+      muscle: ex.muscle,
+      sets: ex.sets,
+      reps: ex.reps,
+      rest_seconds: ex.rest_seconds,
+      notes: ex.notes,
+      reference_link: ex.reference_link,
+      order_index: ex.order_index,
+      set_details: ex.set_details,
+    })),
+  }
 }
 
 export default function MyRoutinesPage() {
@@ -66,14 +102,11 @@ export default function MyRoutinesPage() {
     if (!user) return
     setLoadError(null)
     try {
-      const [mine, assigned] = await Promise.all([
-        routinesService.getMine(user.id),
-        trainingService.getByMemberAll(user.id),
-      ])
+      const { mine, assigned } = await loadRoutinesData(user.id)
       setRoutines(mine)
-      setAssignedPlans(assigned as AssignedPlan[])
-    } catch (e: any) {
-      setLoadError(e?.message || 'No se pudieron cargar tus rutinas')
+      setAssignedPlans(assigned)
+    } catch (e) {
+      setLoadError(getErrorMessage(e, 'No se pudieron cargar tus rutinas'))
     } finally {
       setLoading(false)
     }
@@ -81,9 +114,20 @@ export default function MyRoutinesPage() {
 
   useEffect(() => {
     if (!user) return
-    setLoading(true)
-    loadAll()
-  }, [user, loadAll])
+    let cancelled = false
+    loadRoutinesData(user.id)
+      .then(({ mine, assigned }) => {
+        if (cancelled) return
+        setRoutines(mine)
+        setAssignedPlans(assigned)
+        setLoadError(null)
+      })
+      .catch((e) => {
+        if (!cancelled) setLoadError(getErrorMessage(e, 'No se pudieron cargar tus rutinas'))
+      })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
+  }, [user])
 
   const openCreate = () => {
     setEditData(null)
@@ -93,27 +137,10 @@ export default function MyRoutinesPage() {
   const openEdit = useCallback(async (r: RoutineListItem) => {
     setMenuFor(null)
     try {
-      const { routine, exercises } = await routinesService.getDetail(r.id)
-      setEditData({
-        id: routine.id,
-        name: routine.name,
-        description: routine.description,
-        exercises: exercises.map(ex => ({
-          exercise_id: ex.exercise_id,
-          exercise_name: ex.exercise_name,
-          muscle: ex.muscle,
-          sets: ex.sets,
-          reps: ex.reps,
-          rest_seconds: ex.rest_seconds,
-          notes: ex.notes,
-          reference_link: ex.reference_link,
-          order_index: ex.order_index,
-          set_details: ex.set_details,
-        })),
-      })
+      setEditData(await loadRoutineEditData(r.id))
       setBuilderOpen(true)
-    } catch (e: any) {
-      toast.error('Error al cargar la rutina: ' + e.message)
+    } catch (e) {
+      toast.error('Error al cargar la rutina: ' + getErrorMessage(e))
     }
   }, [])
 
@@ -123,8 +150,22 @@ export default function MyRoutinesPage() {
     const editId = searchParams.get('edit')
     if (!editId) return
     const target = routines.find(r => r.id === editId)
-    if (target) openEdit(target)
-    setSearchParams({}, { replace: true })
+    if (!target) {
+      setSearchParams({}, { replace: true })
+      return
+    }
+    let cancelled = false
+    loadRoutineEditData(target.id)
+      .then((data) => {
+        if (cancelled) return
+        setEditData(data)
+        setBuilderOpen(true)
+      })
+      .catch((e) => {
+        if (!cancelled) toast.error('Error al cargar la rutina: ' + getErrorMessage(e))
+      })
+      .finally(() => { if (!cancelled) setSearchParams({}, { replace: true }) })
+    return () => { cancelled = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading])
 
@@ -136,9 +177,9 @@ export default function MyRoutinesPage() {
     try {
       await routinesService.setPlanVisibility(r.id, next)
       toast.success(next ? 'Rutina visible en Mi plan' : 'Rutina oculta de Mi plan')
-    } catch (e: any) {
+    } catch (e) {
       setRoutines(prev => prev.map(x => (x.id === r.id ? { ...x, show_in_plan: !next } : x)))
-      toast.error('Error al actualizar: ' + e.message)
+      toast.error('Error al actualizar: ' + getErrorMessage(e))
     }
   }, [])
 
@@ -150,9 +191,9 @@ export default function MyRoutinesPage() {
     try {
       await trainingService.setAssignedVisibility(a.id, next)
       toast.success(next ? 'Rutina visible en Mi plan' : 'Rutina oculta de Mi plan')
-    } catch (e: any) {
+    } catch (e) {
       setAssignedPlans(prev => prev.map(x => (x.id === a.id ? { ...x, visible: !next } : x)))
-      toast.error('Error al actualizar: ' + e.message)
+      toast.error('Error al actualizar: ' + getErrorMessage(e))
     }
   }, [])
 
@@ -163,8 +204,8 @@ export default function MyRoutinesPage() {
       toast.success('Rutina eliminada')
       setDeleteTarget(null)
       await loadAll()
-    } catch (e: any) {
-      toast.error('Error al eliminar: ' + e.message)
+    } catch (e) {
+      toast.error('Error al eliminar: ' + getErrorMessage(e))
     }
   }
 
@@ -177,8 +218,8 @@ export default function MyRoutinesPage() {
       const code = await routinesService.generateShareCode(r.id)
       setShareCode(code)
       setRoutines(prev => prev.map(x => (x.id === r.id ? { ...x, share_code: code } : x)))
-    } catch (e: any) {
-      toast.error(e.message)
+    } catch (e) {
+      toast.error(getErrorMessage(e))
       setShareFor(null)
     } finally {
       setShareLoading(false)
@@ -193,8 +234,8 @@ export default function MyRoutinesPage() {
       setShareCode(code)
       setRoutines(prev => prev.map(x => (x.id === shareFor.id ? { ...x, share_code: code } : x)))
       toast.success('Código regenerado. El anterior ya no funciona.')
-    } catch (e: any) {
-      toast.error(e.message)
+    } catch (e) {
+      toast.error(getErrorMessage(e))
     } finally {
       setShareLoading(false)
     }
@@ -208,8 +249,8 @@ export default function MyRoutinesPage() {
       setShareCode('')
       setRoutines(prev => prev.map(x => (x.id === shareFor.id ? { ...x, share_code: null } : x)))
       toast.success('Código revocado')
-    } catch (e: any) {
-      toast.error(e.message)
+    } catch (e) {
+      toast.error(getErrorMessage(e))
     } finally {
       setShareLoading(false)
     }
@@ -235,8 +276,8 @@ export default function MyRoutinesPage() {
       setImportOpen(false)
       setImportCode('')
       await loadAll()
-    } catch (e: any) {
-      toast.error(e.message)
+    } catch (e) {
+      toast.error(getErrorMessage(e))
     } finally {
       setImporting(false)
     }
@@ -250,9 +291,9 @@ export default function MyRoutinesPage() {
       const exercises = await trainingService.getExercises(planId)
       if (sessionReq.current !== req) return
       setSession({ planId, name: planName, exercises, loading: false })
-    } catch (e: any) {
+    } catch (e) {
       if (sessionReq.current !== req) return
-      toast.error('No se pudieron cargar los ejercicios: ' + e.message)
+      toast.error('No se pudieron cargar los ejercicios: ' + getErrorMessage(e))
       setSession(null)
     }
   }
@@ -272,8 +313,8 @@ export default function MyRoutinesPage() {
       )))
       toast.success(days.length > 0 ? 'Días actualizados' : 'Rutina sin días programados')
       setScheduleFor(null)
-    } catch (e: any) {
-      toast.error('No se pudo programar: ' + e.message)
+    } catch (e) {
+      toast.error('No se pudo programar: ' + getErrorMessage(e))
     } finally {
       setScheduleSaving(false)
     }
@@ -318,13 +359,13 @@ export default function MyRoutinesPage() {
         }
       />
 
-      <div className="px-4 sm:px-5 py-4 pb-10 flex-1 mx-auto w-full max-w-[560px]">
+      <PageContainer className="flex-1 pb-10">
         {loading ? (
           <div className="flex flex-col gap-3">
-            {[0, 1, 2].map(i => <div key={i} className="h-[120px] rounded-2xl skeleton" />)}
+            {[0, 1, 2].map(i => <div key={i} className="h-[120px] rounded-card skeleton" />)}
           </div>
         ) : loadError ? (
-          <div className="bg-surface  rounded-2xl p-8 text-center flex flex-col items-center gap-3">
+          <div className="bg-surface  rounded-card p-8 text-center flex flex-col items-center gap-3">
             <div className="text-sm font-semibold">No se pudieron cargar tus rutinas</div>
             <div className="text-xs text-text-3 max-w-[280px]">{loadError}</div>
             <button
@@ -335,7 +376,7 @@ export default function MyRoutinesPage() {
             </button>
           </div>
         ) : routines.length === 0 ? (
-          <div className="bg-surface  rounded-2xl p-8 text-center flex flex-col items-center gap-3 animate-slide-up">
+          <div className="bg-surface  rounded-card p-8 text-center flex flex-col items-center gap-3 animate-slide-up">
             <div className="w-14 h-14 rounded-full bg-accent-dim text-accent flex items-center justify-center">
               <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
                 <path d="M6.5 6.5l11 11M4 9v6M20 9v6M7 7v10M17 7v10" />
@@ -365,7 +406,7 @@ export default function MyRoutinesPage() {
             {routines.map((r, i) => (
               <article
                 key={r.id}
-                className={`bg-surface  rounded-2xl p-4 sm:p-5 animate-slide-up ${i < 7 ? `stagger-${i + 1}` : ''}`}
+                className={`bg-surface rounded-card p-5 animate-slide-up ${i < 7 ? `stagger-${i + 1}` : ''}`}
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0 flex-1">
@@ -411,7 +452,7 @@ export default function MyRoutinesPage() {
                     {menuFor === r.id && (
                       <>
                         <div className="fixed inset-0 z-20" onClick={() => setMenuFor(null)} />
-                        <div className="absolute right-0 top-10 z-30 w-48 bg-surface2 border border-border2 rounded-2xl  overflow-hidden">
+                        <div className="absolute right-0 top-10 z-30 w-48 bg-surface2 border border-border2 rounded-tile  overflow-hidden">
                           <MenuItem
                             label="Editar rutina"
                             icon={<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7m-2.5-11.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />}
@@ -472,7 +513,7 @@ export default function MyRoutinesPage() {
 
             <div className="flex flex-col gap-3">
               {assignedPlans.map(a => (
-                <article key={a.id} className="bg-surface  rounded-2xl p-4 sm:p-5">
+                <article key={a.id} className="bg-surface rounded-card p-5">
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0 flex-1">
                       <h2 className="text-[15px] font-bold truncate">{a.name}</h2>
@@ -508,7 +549,7 @@ export default function MyRoutinesPage() {
                       {menuFor === a.id && (
                         <>
                           <div className="fixed inset-0 z-20" onClick={() => setMenuFor(null)} />
-                          <div className="absolute right-0 top-10 z-30 w-48 bg-surface2 border border-border2 rounded-2xl  overflow-hidden">
+                          <div className="absolute right-0 top-10 z-30 w-48 bg-surface2 border border-border2 rounded-tile  overflow-hidden">
                             <MenuItem
                               label={a.visible !== false ? 'Ocultar de Mi plan' : 'Mostrar en Mi plan'}
                               icon={a.visible !== false
@@ -534,10 +575,11 @@ export default function MyRoutinesPage() {
             </div>
           </section>
         )}
-      </div>
+      </PageContainer>
 
       {/* Sesión de entrenamiento (solo UI) */}
       <WorkoutSession
+        key={`${session ? 'o' : 'c'}-${session?.planId ?? ''}-${session?.exercises.length ?? 0}`}
         open={session !== null}
         onClose={closeSession}
         planName={session?.name ?? ''}
@@ -590,7 +632,7 @@ export default function MyRoutinesPage() {
         ) : shareCode ? (
           <>
             <div className="flex items-center justify-center gap-2 py-4">
-              <div className="font-mono text-3xl sm:text-4xl font-bold tracking-[0.25em] bg-surface2 border border-border2 rounded-2xl px-6 py-4 select-all">
+              <div className="font-mono text-3xl sm:text-4xl font-bold tracking-[0.25em] bg-surface2 border border-border2 rounded-tile px-6 py-4 select-all">
                 {shareCode}
               </div>
               <button
@@ -652,6 +694,7 @@ export default function MyRoutinesPage() {
 
       {/* Builder crear/editar */}
       <RoutineBuilder
+        key={`${builderOpen ? 'o' : 'c'}-${editData?.id ?? 'new'}`}
         open={builderOpen}
         onClose={() => setBuilderOpen(false)}
         onSave={() => { loadAll() }}
@@ -661,6 +704,7 @@ export default function MyRoutinesPage() {
 
       {/* Programar días */}
       <ScheduleSheet
+        key={`${scheduleFor ? 'o' : 'c'}-${scheduleFor?.id ?? ''}`}
         open={scheduleFor !== null}
         onClose={() => setScheduleFor(null)}
         planName={scheduleFor?.name}

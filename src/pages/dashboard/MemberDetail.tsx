@@ -6,18 +6,21 @@ import { LoadingSpinner } from '@/components/ui/atoms/LoadingSpinner';
 import { Modal } from '@/components/ui/molecules/Modal';
 import { ScreenHeader } from '@/components/ui/layout/ScreenHeader';
 import { ResponsiveTable, type Column } from '@/components/ui/molecules/ResponsiveTable';
-import { initials, fmtDate, fmtMoney, fmtPhone, daysDiff, avatarIndex, AVATAR_COLORS } from '@/lib/helpers';
-import { IconEdit, IconCalendar } from '@/lib/icons';
+import { ProfileField } from '@/components/ui/molecules/ProfileField';
+import { initials, fmtDate, fmtMoney, fmtPhone, daysDiff, avatarIndex, getErrorMessage, AVATAR_COLORS } from '@/lib/helpers';
+import { IconEdit, IconCalendar, IconLock } from '@/lib/icons';
+import { canAdminEditProfile } from '@/lib/member-edit';
 import { membersService, type MemberListItem } from '@/services/members.service';
 import { membershipsService, type Membership, type MembershipType } from '@/services/memberships.service';
 import { paymentsService, type Payment } from '@/services/payments.service';
 import { trainingService, type TrainingPlan, type PlanExercise } from '@/services/training.service';
 import { checkInsService, type CheckIn } from '@/services/checkIns.service';
+import { FINGERPRINT_ENABLED } from '@/lib/features';
 import { toast } from 'sonner';
 
 type TabKey = 'info' | 'memberships' | 'payments' | 'plan' | 'checkins';
 
-const TABS: { key: TabKey; label: string }[] = [
+const ALL_TABS: { key: TabKey; label: string }[] = [
   { key: 'info', label: 'Info' },
   { key: 'memberships', label: 'Membresías' },
   { key: 'payments', label: 'Pagos' },
@@ -25,8 +28,21 @@ const TABS: { key: TabKey; label: string }[] = [
   { key: 'checkins', label: 'Check-ins' },
 ];
 
+/** Check-ins depende de la huella, que aún no se libera (ver `src/lib/features.ts`). */
+const TABS = FINGERPRINT_ENABLED ? ALL_TABS : ALL_TABS.filter((t) => t.key !== 'checkins');
+
 const PAYMENT_METHOD_LABELS: Record<string, string> = { cash: 'Efectivo', card: 'Tarjeta', transfer: 'Transferencia' };
 const PAYMENT_METHOD_COLORS: Record<string, string> = { cash: 'var(--green-text)', card: 'var(--teal-text)', transfer: 'var(--amber-text)' };
+
+/**
+ * Tono de las tarjetas de métricas. `default` deja el número en blanco
+ * (sin tinte de acento) para que el dato mande sobre el color.
+ */
+function metricTone(color: string): { bar: string; value: string } {
+  return color === 'default'
+    ? { bar: 'var(--text-3)', value: 'var(--text)' }
+    : { bar: `var(--${color})`, value: `var(--${color}-text)` };
+}
 
 export default function MemberDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -34,22 +50,38 @@ export default function MemberDetailPage() {
 
   const [activeTab, setActiveTab] = useState<TabKey>('info');
   const [member, setMember] = useState<MemberListItem | null>(null);
-  const [loading, setLoading] = useState(true);
+
+  /**
+   * Claves ya cargadas por sección. El estado de carga se deriva de aquí para
+   * no escribir estado sincrónicamente dentro de los effects.
+   */
+  const [loaded, setLoaded] = useState<{
+    member: string | null;
+    memberships: string | null;
+    payments: string | null;
+    checkIns: string | null;
+    plan: string | null;
+  }>({ member: null, memberships: null, payments: null, checkIns: null, plan: null });
+  const [planSwitching, setPlanSwitching] = useState(false);
+
+  const loading = loaded.member !== (id ?? null);
 
   const [memberships, setMemberships] = useState<(Membership & { type_name?: string })[]>([]);
   const [membershipTypes, setMembershipTypes] = useState<MembershipType[]>([]);
-  const [membershipsLoading, setMembershipsLoading] = useState(false);
 
   const [payments, setPayments] = useState<Payment[]>([]);
-  const [paymentsLoading, setPaymentsLoading] = useState(false);
 
   const [plans, setPlans] = useState<(TrainingPlan & { creator: { id: string; full_name: string } | null })[]>([]);
   const [activePlanIdx, setActivePlanIdx] = useState(0);
   const [exercises, setExercises] = useState<PlanExercise[]>([]);
-  const [planLoading, setPlanLoading] = useState(false);
 
   const [checkIns, setCheckIns] = useState<CheckIn[]>([]);
-  const [checkInsLoading, setCheckInsLoading] = useState(false);
+
+  const membershipsLoading = member !== null && loaded.memberships !== member.id;
+  const paymentsLoading = member !== null && loaded.payments !== member.id;
+  const checkInsLoading = member !== null && loaded.checkIns !== member.id;
+  const planLoading =
+    planSwitching || (member !== null && activeTab === 'plan' && loaded.plan !== member.id);
 
   const [editModal, setEditModal] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -58,7 +90,6 @@ export default function MemberDetailPage() {
   useEffect(() => {
     if (!id) { navigate('/members'); return; }
     const ctrl = { cancelled: false }
-    setLoading(true);
     Promise.all([
       membersService.getById(id),
       membershipsService.getTypes(),
@@ -77,18 +108,20 @@ export default function MemberDetailPage() {
       })
       .catch((e) => {
         if (ctrl.cancelled) return
-        toast.error('Error al cargar miembro: ' + e.message);
+        toast.error('Error al cargar miembro: ' + getErrorMessage(e));
         navigate('/members');
       })
-      .finally(() => { if (!ctrl.cancelled) setLoading(false) })
+      .finally(() => {
+        if (!ctrl.cancelled) setLoaded((prev) => ({ ...prev, member: id }));
+      })
     return () => { ctrl.cancelled = true }
   }, [id, navigate]);
 
   useEffect(() => {
     if (!member) return;
     const ctrl = { cancelled: false }
-    setMembershipsLoading(true);
-    membershipsService.getByMember(member.id)
+    const memberId = member.id;
+    membershipsService.getByMember(memberId)
       .then((data) => {
         if (ctrl.cancelled) return
         const enriched = data.map((m) => ({
@@ -98,26 +131,30 @@ export default function MemberDetailPage() {
         setMemberships(enriched);
       })
       .catch(() => { if (!ctrl.cancelled) toast.error('Error al cargar membresías') })
-      .finally(() => { if (!ctrl.cancelled) setMembershipsLoading(false) })
+      .finally(() => {
+        if (!ctrl.cancelled) setLoaded((prev) => ({ ...prev, memberships: memberId }));
+      })
     return () => { ctrl.cancelled = true }
-  }, [member]);
+  }, [member, membershipTypes]);
 
   useEffect(() => {
     if (!member) return;
     const ctrl = { cancelled: false }
-    setPaymentsLoading(true);
-    paymentsService.getByMember(member.id)
+    const memberId = member.id;
+    paymentsService.getByMember(memberId)
       .then((data) => { if (!ctrl.cancelled) setPayments(data) })
       .catch(() => { if (!ctrl.cancelled) toast.error('Error al cargar pagos') })
-      .finally(() => { if (!ctrl.cancelled) setPaymentsLoading(false) })
+      .finally(() => {
+        if (!ctrl.cancelled) setLoaded((prev) => ({ ...prev, payments: memberId }));
+      })
     return () => { ctrl.cancelled = true }
   }, [member]);
 
   useEffect(() => {
     if (!member || activeTab !== 'plan') return;
     const ctrl = { cancelled: false }
-    setPlanLoading(true);
-    trainingService.getByMemberAll(member.id)
+    const memberId = member.id;
+    trainingService.getByMemberAll(memberId)
       .then(async (allPlans) => {
         if (ctrl.cancelled) return
         setPlans(allPlans);
@@ -130,7 +167,9 @@ export default function MemberDetailPage() {
         }
       })
       .catch(() => { if (!ctrl.cancelled) toast.error('Error al cargar planes') })
-      .finally(() => { if (!ctrl.cancelled) setPlanLoading(false) })
+      .finally(() => {
+        if (!ctrl.cancelled) setLoaded((prev) => ({ ...prev, plan: memberId }));
+      })
     return () => { ctrl.cancelled = true }
   }, [activeTab, member]);
 
@@ -138,33 +177,44 @@ export default function MemberDetailPage() {
     const selected = plans[idx];
     if (!selected) return;
     setActivePlanIdx(idx);
-    setPlanLoading(true);
+    setPlanSwitching(true);
     try {
       const ex = await trainingService.getExercises(selected.id);
       setExercises(ex);
     } catch {
       toast.error('Error al cargar ejercicios');
     } finally {
-      setPlanLoading(false);
+      setPlanSwitching(false);
     }
   }, [plans]);
 
   useEffect(() => {
-    if (!member) return;
+    if (!FINGERPRINT_ENABLED || !member) return;
     const ctrl = { cancelled: false }
-    setCheckInsLoading(true);
-    checkInsService.getByMember(member.id)
+    const memberId = member.id;
+    checkInsService.getByMember(memberId)
       .then((data) => { if (!ctrl.cancelled) setCheckIns(data) })
       .catch(() => { if (!ctrl.cancelled) toast.error('Error al cargar check-ins') })
-      .finally(() => { if (!ctrl.cancelled) setCheckInsLoading(false) })
+      .finally(() => {
+        if (!ctrl.cancelled) setLoaded((prev) => ({ ...prev, checkIns: memberId }));
+      })
     return () => { ctrl.cancelled = true }
   }, [member]);
 
   const handleSave = useCallback(async () => {
     if (!member || !id) return;
+    // Los datos personales solo los captura el admin mientras el perfil no
+    // tiene cuenta; después el miembro es dueño de su información.
+    const canEditProfile = canAdminEditProfile(member.registration_status);
     setSaving(true);
     try {
       await membersService.update(id, {
+        ...(canEditProfile ? {
+          full_name: form.full_name.trim(),
+          email: form.email.trim() || null,
+          phone: form.phone.trim() || null,
+        } : {}),
+        // El rol lo gestiona el admin sin importar el estado de la cuenta.
         role: form.role as 'admin' | 'trainer' | 'member',
         alias: form.alias.trim() || undefined,
       });
@@ -172,8 +222,8 @@ export default function MemberDetailPage() {
       setEditModal(false);
       const updated = await membersService.getById(id);
       setMember(updated);
-    } catch (e: any) {
-      toast.error('Error al guardar: ' + e.message);
+    } catch (e) {
+      toast.error('Error al guardar: ' + getErrorMessage(e));
     } finally {
       setSaving(false);
     }
@@ -183,6 +233,8 @@ export default function MemberDetailPage() {
   if (!member) return null;
 
   const m = member;
+  // Solo los perfiles sin cuenta vinculada se editan a mano desde el admin.
+  const canEditProfile = canAdminEditProfile(m.registration_status);
   const av = avatarIndex(m.id);
 
   const membershipStatusColor = (status: string) => {
@@ -261,8 +313,8 @@ export default function MemberDetailPage() {
     <>
       <ScreenHeader title={m.full_name} subtitle="Detalle del miembro" back="/members" wide />
 
-      <div className="px-4 sm:px-6 py-4 flex-1 mx-auto w-full max-w-[1100px]">
-        <div className="relative overflow-hidden rounded-3xl bg-surface  p-6 sm:p-8 mb-8">
+      <div className="px-4 sm:px-6 py-4 flex-1 mx-auto w-full max-w-[720px]">
+        <div className="relative overflow-hidden rounded-card bg-surface  p-6 sm:p-8 mb-8">
           <div className="absolute inset-0 opacity-[0.06]"
             style={{ background: 'radial-gradient(600px circle at 30% 40%, var(--accent), transparent)' }} />
           <div className="relative flex items-center gap-5">
@@ -285,7 +337,7 @@ export default function MemberDetailPage() {
           </div>
         </div>
 
-        <div className="flex gap-1 mb-7 border-b border-border overflow-x-auto">
+        <div className="flex gap-1 mb-7 border-b border-border overflow-x-auto scrollbar-none">
           {TABS.map((tab) => (
             <button
               key={tab.key}
@@ -303,17 +355,17 @@ export default function MemberDetailPage() {
 
         {activeTab === 'info' && (
           <div className="space-y-5">
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className={`grid grid-cols-2 gap-3 ${FINGERPRINT_ENABLED ? 'sm:grid-cols-4' : 'sm:grid-cols-3'}`}>
               {[
-                { label: 'Antigüedad', value: `${daysDiff(m.created_at) ?? 0} días`, color: 'accent', sub: 'Miembro desde ' + fmtDate(m.created_at) },
+                { label: 'Antigüedad', value: `${daysDiff(m.created_at) ?? 0} días`, color: 'default', sub: 'Miembro desde ' + fmtDate(m.created_at) },
                 { label: 'Membresía', value: activeMembership ? 'Activa' : 'Sin membresía', color: activeMembership ? 'green' : 'red', sub: activeMembership ? `Vence ${fmtDate(activeMembership.end_date)}` : 'Sin membresía activa' },
                 { label: 'Pagos', value: payments.length, color: 'green', sub: `Total: ${fmtMoney(totalPaid)}` },
-                { label: 'Check-ins', value: thisMonthCheckins, color: 'teal', sub: 'Este mes' },
+                ...(FINGERPRINT_ENABLED ? [{ label: 'Check-ins', value: thisMonthCheckins, color: 'default', sub: 'Este mes' }] : []),
               ].map((item, i) => (
-                <div key={item.label} className={`relative bg-surface  rounded overflow-hidden p-[18px] animate-slide-up stagger-${i + 1} card-hover-lift`}>
-                  <div className="absolute top-0 left-0 right-0 h-0.5" style={{ background: `var(--${item.color})` }} />
+                <div key={item.label} className={`relative bg-surface rounded-[24px] overflow-hidden p-5 animate-slide-up stagger-${i + 1} card-hover-lift`}>
+                  <div className="absolute top-0 left-0 right-0 h-0.5" style={{ background: metricTone(item.color).bar }} />
                   <div className="text-[11px] text-text-3 uppercase tracking-[0.06em] mb-2.5">{item.label}</div>
-                  <div className="text-[26px] font-semibold leading-none -tracking-[0.03em]" style={{ color: `var(--${item.color}-text)` }}>{item.value}</div>
+                  <div className="text-[26px] font-semibold leading-none -tracking-[0.03em]" style={{ color: metricTone(item.color).value }}>{item.value}</div>
                   <div className="text-[11px] text-text-3 mt-1.5">{item.sub}</div>
                 </div>
               ))}
@@ -445,6 +497,7 @@ export default function MemberDetailPage() {
                 )}
               </div>
 
+              {FINGERPRINT_ENABLED && (
               <div className="bg-surface  rounded p-5 animate-slide-up stagger-8 card-hover-lift">
                 <h3 className="text-[11px] text-text-3 uppercase tracking-[0.08em] mb-4 flex items-center gap-2">
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--teal-text)" strokeWidth="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
@@ -480,6 +533,7 @@ export default function MemberDetailPage() {
                   </div>
                 )}
               </div>
+              )}
             </div>
           </div>
         )}
@@ -500,7 +554,6 @@ export default function MemberDetailPage() {
                 <span className="text-[12px] mt-1">Este miembro no tiene historial de membresías.</span>
               </div>
             ) : (
-              <div className="bg-surface  rounded overflow-hidden">
                 <ResponsiveTable
                   columns={membershipColumns}
                   data={memberships}
@@ -515,7 +568,6 @@ export default function MemberDetailPage() {
                   ]}
                   emptyMessage="Sin membresías registradas."
                 />
-              </div>
             )}
           </div>
         )}
@@ -530,12 +582,12 @@ export default function MemberDetailPage() {
                   {[
                     { label: 'Total pagado', value: fmtMoney(totalPaid), color: 'green', sub: `${payments.filter((p) => p.status === 'paid').length} pagos` },
                     { label: 'Pendiente', value: fmtMoney(totalPending), color: 'amber', sub: `${payments.filter((p) => p.status === 'pending').length} pagos` },
-                    { label: 'Último pago', value: lastPayment ? fmtDate(lastPayment.payment_date) : '—', color: 'teal', sub: lastPayment ? fmtMoney(lastPayment.amount) : 'Sin pagos' },
+                    { label: 'Último pago', value: lastPayment ? fmtDate(lastPayment.payment_date) : '—', color: 'default', sub: lastPayment ? fmtMoney(lastPayment.amount) : 'Sin pagos' },
                   ].map((m) => (
-                    <div key={m.label} className="relative bg-surface  rounded overflow-hidden p-[18px]">
-                      <div className="absolute top-0 left-0 right-0 h-0.5" style={{ background: `var(--${m.color})` }} />
+                    <div key={m.label} className="relative bg-surface rounded-[24px] overflow-hidden p-5">
+                      <div className="absolute top-0 left-0 right-0 h-0.5" style={{ background: metricTone(m.color).bar }} />
                       <div className="text-[11px] text-text-3 uppercase tracking-[0.06em] mb-2.5">{m.label}</div>
-                      <div className="text-[22px] font-semibold leading-none -tracking-[0.03em]" style={{ color: `var(--${m.color}-text)` }}>{m.value}</div>
+                      <div className="text-[22px] font-semibold leading-none -tracking-[0.03em]" style={{ color: metricTone(m.color).value }}>{m.value}</div>
                       <div className="text-[11px] text-text-3 mt-1.5">{m.sub}</div>
                     </div>
                   ))}
@@ -551,7 +603,6 @@ export default function MemberDetailPage() {
                     <span className="text-[12px] mt-1">Este miembro no tiene historial de pagos.</span>
                   </div>
                 ) : (
-                  <div className="bg-surface  rounded overflow-hidden">
                     <ResponsiveTable
                       columns={paymentColumns}
                       data={payments}
@@ -564,7 +615,6 @@ export default function MemberDetailPage() {
                       ]}
                       emptyMessage="Sin pagos registrados."
                     />
-                  </div>
                 )}
               </div>
             )}
@@ -628,7 +678,7 @@ export default function MemberDetailPage() {
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                     {exercises.map((ex) => (
-                      <div key={ex.id} className="bg-surface  rounded p-4">
+                      <div key={ex.id} className="bg-surface rounded-tile p-4">
                         <div className="flex items-start justify-between mb-2.5">
                           <span className="text-[13px] font-medium">{ex.exercise_name}</span>
                           {ex.muscle && (
@@ -662,7 +712,7 @@ export default function MemberDetailPage() {
           </div>
         )}
 
-        {activeTab === 'checkins' && (
+        {FINGERPRINT_ENABLED && activeTab === 'checkins' && (
           <div>
             {checkInsLoading ? (
               <LoadingSpinner text="Cargando check-ins…" />
@@ -671,13 +721,13 @@ export default function MemberDetailPage() {
                 <div className="grid grid-cols-3 gap-3">
                   {[
                     { label: 'Este mes', value: thisMonthCheckins, color: 'green', sub: 'Check-ins en el período actual' },
-                    { label: 'Total', value: checkIns.length, color: 'teal', sub: 'Histórico completo' },
-                    { label: 'Promedio', value: checkIns.length > 0 ? `${(thisMonthCheckins / Math.max(1, new Date().getDate())).toFixed(1)}/día` : '—', color: 'accent', sub: 'Este mes' },
+                    { label: 'Total', value: checkIns.length, color: 'default', sub: 'Histórico completo' },
+                    { label: 'Promedio', value: checkIns.length > 0 ? `${(thisMonthCheckins / Math.max(1, new Date().getDate())).toFixed(1)}/día` : '—', color: 'default', sub: 'Este mes' },
                   ].map((m) => (
-                    <div key={m.label} className="relative bg-surface  rounded overflow-hidden p-[18px]">
-                      <div className="absolute top-0 left-0 right-0 h-0.5" style={{ background: `var(--${m.color})` }} />
+                    <div key={m.label} className="relative bg-surface rounded-[24px] overflow-hidden p-5">
+                      <div className="absolute top-0 left-0 right-0 h-0.5" style={{ background: metricTone(m.color).bar }} />
                       <div className="text-[11px] text-text-3 uppercase tracking-[0.06em] mb-2.5">{m.label}</div>
-                      <div className="text-[26px] font-semibold leading-none -tracking-[0.03em]" style={{ color: `var(--${m.color}-text)` }}>{m.value}</div>
+                      <div className="text-[26px] font-semibold leading-none -tracking-[0.03em]" style={{ color: metricTone(m.color).value }}>{m.value}</div>
                       <div className="text-[11px] text-text-3 mt-1.5">{m.sub}</div>
                     </div>
                   ))}
@@ -695,7 +745,6 @@ export default function MemberDetailPage() {
                     <span className="text-[12px] mt-1">Este miembro no ha registrado asistencia.</span>
                   </div>
                 ) : (
-                  <div className="bg-surface  rounded overflow-hidden">
                     <ResponsiveTable
                       columns={checkinColumns}
                       data={checkIns}
@@ -707,7 +756,6 @@ export default function MemberDetailPage() {
                       ]}
                       emptyMessage="Sin check-ins registrados."
                     />
-                  </div>
                 )}
               </div>
             )}
@@ -716,36 +764,68 @@ export default function MemberDetailPage() {
       </div>
 
       <Modal open={editModal} onClose={() => setEditModal(false)} title="Editar miembro" className="max-w-[400px]" icon={<IconEdit width="16" height="16" />}>
-        <div className="flex flex-col gap-4">
-          {[
-            { label: 'Nombre completo', value: form.full_name, span: true },
-            { label: 'Correo electrónico', value: form.email || '—' },
-            { label: 'Teléfono', value: fmtPhone(form.phone) },
-          ].map((f) => (
-            <div key={f.label} className={`flex flex-col gap-1 px-3 py-2.5 rounded-2xl bg-surface2/50 border border-border ${f.span ? 'sm:col-span-2' : ''}`}>
-              <span className="text-[10px] text-text-3 uppercase tracking-[0.06em] font-medium">{f.label}</span>
-              <span className="text-[13px] text-text-2">{f.value}</span>
-            </div>
-          ))}
-          <div className="flex flex-col gap-1.5">
-            <label className="text-[12px] text-text-2 font-medium">Ref. interna</label>
-            <input type="text" value={form.alias} onChange={(e) => setForm((f) => ({ ...f, alias: e.target.value }))}
-              placeholder="Referencia para identificar al miembro"
-              className="bg-surface2 border border-border2 text-text text-[13px] px-3 py-[9px] rounded-2xl outline-none w-full font-sans" />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <label className="text-[12px] text-text-2 font-medium">Rol</label>
-            <select value={form.role} onChange={(e) => setForm((f) => ({ ...f, role: e.target.value }))}
-              className="bg-surface2 border border-border2 text-text text-[13px] px-3 py-[9px] rounded-2xl outline-none w-full font-sans">
+        <div className="overflow-hidden rounded-tile bg-surface2 divide-y divide-divider">
+          <ProfileField
+            label="Nombre"
+            value={form.full_name}
+            onChange={canEditProfile ? (v) => setForm((f) => ({ ...f, full_name: v })) : undefined}
+            disabled={saving}
+            placeholder="Nombre completo"
+            autoComplete="off"
+          />
+          <ProfileField
+            label="Correo"
+            type="email"
+            inputMode="email"
+            value={form.email}
+            onChange={canEditProfile ? (v) => setForm((f) => ({ ...f, email: v })) : undefined}
+            disabled={saving}
+            placeholder="correo@ejemplo.com"
+            autoComplete="off"
+          />
+          <ProfileField
+            label="Teléfono"
+            type="tel"
+            inputMode="tel"
+            value={form.phone}
+            displayValue={fmtPhone(form.phone)}
+            onChange={canEditProfile ? (v) => setForm((f) => ({ ...f, phone: v })) : undefined}
+            disabled={saving}
+            placeholder="33 1234 5678"
+            autoComplete="off"
+          />
+          <div className="flex items-center gap-3 px-4 py-3">
+            <span className="shrink-0 text-[12px] text-text-3">Rol</span>
+            <select
+              value={form.role}
+              onChange={(e) => setForm((f) => ({ ...f, role: e.target.value }))}
+              disabled={saving}
+              aria-label="Rol del miembro"
+              className="min-w-0 flex-1 rounded-xl border border-border2 bg-surface3/60 px-3 py-2 text-right font-sans text-[13px] text-text outline-none focus:border-accent/40 focus:ring-2 focus:ring-accent/30 disabled:cursor-not-allowed disabled:opacity-60"
+            >
               <option value="member">Miembro</option>
               <option value="trainer">Entrenador</option>
               <option value="admin">Admin</option>
             </select>
           </div>
         </div>
+
+        {!canEditProfile && (
+          <p className="flex items-start gap-1.5 px-1 text-[11px] leading-relaxed text-text-3">
+            <IconLock width="12" height="12" className="mt-0.5 shrink-0" />
+            Este miembro ya tiene cuenta y administra sus datos desde la app. Solo puedes cambiar el rol y la referencia interna.
+          </p>
+        )}
+
+        <div className="flex flex-col gap-1.5">
+          <label className="text-[12px] text-text-2 font-medium">Ref. interna</label>
+          <input type="text" value={form.alias} onChange={(e) => setForm((f) => ({ ...f, alias: e.target.value }))}
+            placeholder="Referencia para identificar al miembro"
+            className="bg-surface2 border border-border2 text-text text-[13px] px-3 py-[9px] rounded-2xl outline-none w-full font-sans" />
+        </div>
         <div className="flex justify-end gap-2.5 mt-2">
           <Button variant="ghost" onClick={() => setEditModal(false)} disabled={saving}>Cancelar</Button>
-          <Button variant="primary" onClick={handleSave} disabled={saving}>
+          <Button variant="primary" onClick={handleSave} disabled={saving || (canEditProfile && !form.full_name.trim())}>
             {saving ? 'Guardando…' : 'Guardar cambios'}
           </Button>
         </div>

@@ -1,15 +1,15 @@
 import { useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useAuthStore } from '@/store/auth.store'
-import { membershipsService } from '@/services/memberships.service'
+import { membershipsService, type ActiveMembership, type MembershipWithType } from '@/services/memberships.service'
 import { paymentsService, type Payment } from '@/services/payments.service'
 import { Badge } from '@/components/ui/atoms/Badge'
 import { LoadingSpinner } from '@/components/ui/atoms/LoadingSpinner'
 import { MetricCard } from '@/components/ui/atoms/MetricCard'
 import { Modal } from '@/components/ui/molecules/Modal'
-import { TabBar } from '@/components/ui/molecules/TabBar'
-import { ScreenHeader } from '@/components/ui/layout/ScreenHeader'
+import { SegmentedControl } from '@/components/ui/molecules/SegmentedControl'
 import { fmtDate, fmtMoney } from '@/lib/helpers'
+import { PageContainer } from '@/components/ui/layout/PageContainer'
 
 const METHOD_LABEL: Record<string, string> = { cash: 'Efectivo', card: 'Tarjeta', transfer: 'Transferencia' }
 
@@ -32,8 +32,8 @@ export default function MyMembershipPage() {
   const setTab = (key: string) => setSearchParams(key === 'pagos' ? { tab: 'pagos' } : {}, { replace: true })
 
   const [loading, setLoading] = useState(true)
-  const [membership, setMembership] = useState<any>(null)
-  const [history, setHistory] = useState<any[]>([])
+  const [membership, setMembership] = useState<ActiveMembership | null>(null)
+  const [history, setHistory] = useState<MembershipWithType[]>([])
   const [payments, setPayments] = useState<Payment[]>([])
   const [receipt, setReceipt] = useState<Payment | null>(null)
 
@@ -79,49 +79,50 @@ export default function MyMembershipPage() {
   const lastPayment = payments.find(p => p.status === 'paid') || payments[0]
 
   return (<>
-      <ScreenHeader
-        title="Mi membresía"
-        subtitle="Estado y pagos"
-        actions={
-          <TabBar
-            tabs={[
-              { key: 'membresia', label: 'Mi membresía' },
-              { key: 'pagos', label: 'Pagos' },
-            ]}
-            active={tab}
-            onChange={setTab}
-          />
-        }
+    <header className="safe-top px-4 sm:px-5 pt-3 pb-1">
+      <h1 className="font-ios text-[34px] font-bold leading-tight tracking-[-0.02em]">Mi membresía</h1>
+    </header>
+
+    <div className="px-4 sm:px-5 pt-3 mx-auto w-full max-w-[560px] lg:max-w-[720px]">
+      <SegmentedControl
+        segments={[
+          { key: 'membresia', label: 'Mi membresía' },
+          { key: 'pagos', label: 'Pagos' },
+        ]}
+        value={tab}
+        onChange={setTab}
       />
-    <div className="px-4 sm:px-5 py-4 flex-1 mx-auto w-full max-w-[560px]">
+    </div>
+
+    <PageContainer className="flex-1">
 
       {/* ==================== TAB: MI MEMBRESÍA ==================== */}
       {tab === 'membresia' && (!membership ? (
-        <div className={`bg-surface  rounded-2xl p-10 flex flex-col items-center gap-4 text-center animate-slide-up ${staggerClass(1)}`}>
-          <div className="w-14 h-14 rounded-full flex items-center justify-center" style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444' }}>
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="12" cy="12" r="10"/><path d="M16 16s-1.5-2-4-2-4 2-4 2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
+        <div className={`bg-surface rounded-card p-8 sm:p-10 flex flex-col items-center gap-5 text-center animate-slide-up ${staggerClass(1)}`}>
+          <div className="w-16 h-16 rounded-full bg-accent-dim text-accent flex items-center justify-center">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M16 16s-1.5-2-4-2-4 2-4 2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
           </div>
-          <div>
-            <div className="text-[15px] font-semibold mb-1">Sin membresía activa</div>
-            <div className="text-[13px] text-text-3">Acércate a recepción para contratar una membresía.</div>
+          <div className="flex flex-col items-center gap-2">
+            <div className="text-[17px] font-bold text-text">Sin membresía activa</div>
+            <div className="text-[13px] text-text-2 leading-relaxed max-w-[260px]">Acércate a recepción para contratar una membresía.</div>
           </div>
         </div>
       ) : (
         <div className="flex flex-col gap-4">
           <div className={`flex flex-col gap-4 animate-slide-up ${staggerClass(1)}`}>
             {daysRemaining <= 7 && (
-              <div className="bg-[#2a1f00] border border-[#5a3e00] rounded-2xl p-3.5 flex items-start gap-2.5">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#facc15" strokeWidth="2" strokeLinecap="round" className="shrink-0 mt-0.5">
+              <div className="bg-amber-bg rounded-tile p-3.5 flex items-start gap-2.5">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="shrink-0 mt-0.5 text-amber-text">
                   <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
                 </svg>
                 <div>
-                  <div className="text-[13px] font-semibold text-[#facc15]">Vence en {daysRemaining} días</div>
-                  <div className="text-[12px] text-[#a07a00] mt-0.5">Habla con el gym para renovar tu membresía</div>
+                  <div className="text-[13px] font-semibold text-amber-text">Vence en {daysRemaining} días</div>
+                  <div className="text-[12px] text-amber-text/80 mt-0.5">Habla con el gym para renovar tu membresía</div>
                 </div>
               </div>
             )}
 
-            <div className="bg-surface  rounded-2xl p-5 relative overflow-hidden">
+            <div className="bg-surface rounded-card p-5 relative overflow-hidden">
               <div className="absolute -top-10 -right-10 w-[120px] h-[120px] rounded-full pointer-events-none"
                 style={{ background: 'radial-gradient(circle, var(--accent), transparent 70%)', opacity: 0.06 }} />
               <div className="absolute -bottom-12 left-8 w-[140px] h-[140px] rounded-full pointer-events-none"
@@ -156,9 +157,9 @@ export default function MyMembershipPage() {
               </div>
             </div>
 
-            <div className="bg-surface  rounded-2xl p-4">
+            <div className="bg-surface rounded-card p-5">
               <div className="text-[11px] font-medium text-text-3 uppercase tracking-[0.4px] mb-3">Detalles</div>
-              <div className="divide-y divide-[#222]">
+              <div className="divide-y divide-divider">
                 <div className="flex justify-between items-center py-2">
                   <span className="flex items-center gap-2 text-[13px] text-text-2">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="opacity-60"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
@@ -185,13 +186,13 @@ export default function MyMembershipPage() {
           </div>
 
           {history.length > 1 && (
-            <div className={`bg-surface  rounded-2xl overflow-hidden animate-slide-up ${staggerClass(2)}`}>
-              <div className="px-5 py-4 border-b border-border">
+            <div className={`bg-surface rounded-card overflow-hidden animate-slide-up ${staggerClass(2)}`}>
+              <div className="px-5 py-4">
                 <div className="text-[11px] font-medium text-text-3 uppercase tracking-[0.4px]">Historial</div>
               </div>
               <div className="flex flex-col px-5">
                 {history.map((m, i) => (
-                  <div key={m.id} className={`flex items-center justify-between py-2.5 ${i < history.length - 1 ? 'border-b border-[#222]' : ''}`}>
+                  <div key={m.id} className={`flex items-center justify-between py-2.5 ${i < history.length - 1 ? 'border-b border-divider' : ''}`}>
                     <div className="min-w-0">
                       <div className="text-[13px] font-medium truncate">{m.membership_types?.name || 'Membresía'}</div>
                       <div className="text-[11px] text-text-3 mt-0.5">{fmtDate(m.start_date)} — {fmtDate(m.end_date)}</div>
@@ -209,13 +210,13 @@ export default function MyMembershipPage() {
 
       {/* ==================== TAB: PAGOS ==================== */}
       {tab === 'pagos' && (payments.length === 0 ? (
-        <div className={`bg-surface  rounded-2xl p-10 flex flex-col items-center gap-4 text-center animate-slide-up ${staggerClass(1)}`}>
-          <div className="w-14 h-14 rounded-full flex items-center justify-center" style={{ background: 'rgba(245,158,11,0.12)', color: '#f59e0b' }}>
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="12" cy="12" r="10"/><path d="M16 16s-1.5-2-4-2-4 2-4 2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
+        <div className={`bg-surface rounded-card p-8 sm:p-10 flex flex-col items-center gap-5 text-center animate-slide-up ${staggerClass(1)}`}>
+          <div className="w-16 h-16 rounded-full bg-accent-dim text-accent flex items-center justify-center">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M16 16s-1.5-2-4-2-4 2-4 2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
           </div>
-          <div>
-            <div className="text-[15px] font-semibold mb-1">Sin pagos registrados</div>
-            <div className="text-[13px] text-text-3">Aún no hay transacciones en tu cuenta.</div>
+          <div className="flex flex-col items-center gap-2">
+            <div className="text-[17px] font-bold text-text">Sin pagos registrados</div>
+            <div className="text-[13px] text-text-2 leading-relaxed max-w-[260px]">Aún no hay transacciones en tu cuenta.</div>
           </div>
         </div>
       ) : (
@@ -226,9 +227,9 @@ export default function MyMembershipPage() {
           </div>
 
           {lastPayment && (
-            <div className={`bg-surface  rounded-2xl p-4 mb-4 animate-slide-up ${staggerClass(2)}`}>
+            <div className={`bg-surface rounded-card p-5 mb-4 animate-slide-up ${staggerClass(2)}`}>
               <div className="text-[11px] font-medium text-text-3 uppercase tracking-[0.4px] mb-3">Último pago</div>
-              <div className="divide-y divide-[#222]">
+              <div className="divide-y divide-divider">
                 <div className="flex justify-between items-center py-2">
                   <span className="flex items-center gap-2 text-[13px] text-text-2">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="opacity-60"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
@@ -263,12 +264,12 @@ export default function MyMembershipPage() {
             </div>
           )}
 
-          <div className={`bg-surface  rounded-2xl p-4 animate-slide-up ${staggerClass(3)}`}>
+          <div className={`bg-surface rounded-card p-5 animate-slide-up ${staggerClass(3)}`}>
             <div className="text-[11px] font-medium text-text-3 uppercase tracking-[0.4px] mb-3">Historial completo</div>
             {payments.map((p, i) => (
               <div key={p.id}
                 onClick={() => setReceipt(p)}
-                className={`flex items-center justify-between py-2.5 cursor-pointer bg-surface2 transition-colors rounded-2xl ${i < payments.length - 1 ? 'border-b border-[#222]' : ''}`}>
+                className={`flex items-center justify-between py-2.5 cursor-pointer bg-surface2 transition-colors rounded-tile ${i < payments.length - 1 ? 'border-b border-divider' : ''}`}>
                 <div className="min-w-0">
                   <div className="text-[13px] font-medium truncate">{p.concept || 'Membresía'} · {fmtDate(p.payment_date).split(' ')[1] || ''} {fmtDate(p.payment_date).split(' ')[2] || ''}</div>
                   <div className="text-[11px] text-text-3 mt-0.5">{fmtDate(p.payment_date)} · {METHOD_LABEL[p.method] || p.method}</div>
@@ -335,7 +336,7 @@ export default function MyMembershipPage() {
           </>
         )}
       </Modal>
-    </div>
+    </PageContainer>
     </>
   )
 }

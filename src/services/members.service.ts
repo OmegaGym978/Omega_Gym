@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase'
+import { one, type Embedded } from '@/lib/embed'
 
 function escapeSearch(s: string): string {
   return s.replace(/[%_\\]/g, '\\$&')
@@ -41,12 +42,48 @@ export interface MemberFilters {
   registration?: 'pending' | 'claimed' | 'registered'
   page?: number
   pageSize?: number
+  /** Solo socios sin membresía activa vigente (exclusión evaluada en SQL). */
+  withoutActiveMembership?: boolean
+  /** Id que se fuerza a la primera posición antes de paginar (estado temporal de la vista). */
+  pinnedId?: string
 }
 
-function toMemberListItem(raw: any): MemberListItem {
-  const valid = (raw.memberships ?? []).filter((m: any) => m.membership_types?.name !== 'Visita')
-  const membership = valid.find((m: any) => m.status === 'active') ?? null
-  const legacyPlans = (raw.training_plans ?? []).map((p: any) => p.name).filter(Boolean)
+type ProfileRole = 'admin' | 'trainer' | 'member'
+type RegistrationStatus = 'pending' | 'claimed' | 'registered'
+
+/** Membresía embebida en el select de `profiles`. */
+interface MembershipEmbed {
+  status: string
+  end_date: string
+  membership_types: Embedded<{ name: string }>
+}
+
+/**
+ * Fila de `profiles` con las relaciones embebidas que devuelve Supabase.
+ * Se declara a mano porque el cliente aún no usa tipos generados.
+ */
+interface ProfileRow {
+  id: string
+  full_name: string
+  alias: string | null
+  email: string | null
+  phone: string | null
+  role: ProfileRole
+  is_active: boolean
+  registration_status: RegistrationStatus | null
+  created_at: string
+  memberships?: MembershipEmbed[] | null
+  training_plans?: { name: string | null }[] | null
+  plan_assignments?: { plan: Embedded<{ name: string | null }> }[] | null
+}
+
+function toMemberListItem(raw: ProfileRow): MemberListItem {
+  const valid = (raw.memberships ?? []).filter((m) => one(m.membership_types)?.name !== 'Visita')
+  const membership = valid.find((m) => m.status === 'active') ?? null
+  const legacyPlans = (raw.training_plans ?? []).map((p) => p.name).filter((n): n is string => Boolean(n))
+  const assignedPlans = (raw.plan_assignments ?? [])
+    .map((a) => one(a.plan)?.name)
+    .filter((n): n is string => Boolean(n))
   return {
     id: raw.id,
     full_name: raw.full_name,
@@ -56,17 +93,22 @@ function toMemberListItem(raw: any): MemberListItem {
     role: raw.role,
     is_active: raw.is_active,
     registration_status: raw.registration_status ?? 'registered',
-    membership_type: membership?.membership_types?.name ?? null,
+    membership_type: one(membership?.membership_types)?.name ?? null,
     membership_end: membership?.end_date ?? null,
-    plan_names: Array.from(new Set(legacyPlans)),
+    plan_names: Array.from(new Set([...legacyPlans, ...assignedPlans])),
     created_at: raw.created_at,
   }
 }
 
-const ROLE_PRIORITY: Record<string, number> = { member: 1, trainer: 2, admin: 3 }
+interface ProfileIdentity {
+  id: string
+  full_name: string
+  email?: string | null
+  alias?: string | null
+}
 
-export function deduplicateProfiles(rows: any[]): any[] {
-  const seen = new Map<string, any>()
+export function deduplicateProfiles<T extends ProfileIdentity>(rows: T[]): T[] {
+  const seen = new Map<string, T>()
   for (const row of rows) {
     if (!row.email) {
       seen.set(row.id, row)
@@ -83,22 +125,78 @@ export function deduplicateProfiles(rows: any[]): any[] {
   return Array.from(seen.values())
 }
 
+/**
+ * Columnas y relaciones que consume la UI. Evita `select('*')` y trae
+ * membresías y planes asignados en la misma llamada (sin consultas N+1).
+ */
+const PROFILE_SELECT = `
+  id, full_name, alias, email, phone, role, is_active, registration_status, created_at,
+  memberships(status, end_date, membership_types(name)),
+  training_plans!assigned_to(name),
+  plan_assignments(plan:training_plans(name))
+`
+
+function chunked<T>(items: T[], size: number): T[][] {
+  const chunks: T[][] = []
+  for (let i = 0; i < items.length; i += size) chunks.push(items.slice(i, i + size))
+  return chunks
+}
+
+/** ¿La fila fijada cumple los filtros activos? (no mostrarla fuera de filtro). */
+function matchesListFilters(row: ProfileRow, filters?: MemberFilters): boolean {
+  if (!filters) return true
+  if (filters.role && row.role !== filters.role) return false
+  if (filters.status === 'active' && !row.is_active) return false
+  if (filters.status === 'inactive' && row.is_active) return false
+  if (filters.registration && (row.registration_status ?? 'registered') !== filters.registration) return false
+  if (filters.search) {
+    const q = filters.search.toLowerCase()
+    const haystack = `${row.full_name} ${row.email ?? ''} ${row.phone ?? ''}`.toLowerCase()
+    if (!haystack.includes(q)) return false
+  }
+  return true
+}
+
 export const membersService = {
-  getAll: async (filters?: MemberFilters): Promise<{ data: MemberListItem[]; count: number }> => {
+  /**
+   * Marca vencidas/activas las membresías según la fecha. Se llama una vez por
+   * visita a la pantalla (no en cada búsqueda: son dos UPDATE y un round-trip).
+   */
+  syncStatuses: async (): Promise<void> => {
     await supabase.rpc('sync_membership_status')
+  },
+
+  getAll: async (filters?: MemberFilters): Promise<{ data: MemberListItem[]; count: number }> => {
+    const page = Math.max(1, filters?.page ?? 1)
+    const pageSize = Math.max(1, filters?.pageSize ?? 20)
+    const from = (page - 1) * pageSize
+    const to = from + pageSize - 1
+
+    // Exclusión server-side de socios con membresía activa (no "Visita"),
+    // la misma condición que valida el RPC create_membership_with_payment.
+    let excludedIds: string[] = []
+    if (filters?.withoutActiveMembership) {
+      const { data: activeRows } = await supabase
+        .from('memberships')
+        .select('member_id, membership_types!inner(name)')
+        .eq('status', 'active')
+        .neq('membership_types.name', 'Visita')
+      excludedIds = Array.from(
+        new Set(((activeRows ?? []) as { member_id: string }[]).map((r) => r.member_id))
+      )
+    }
+
     let query = supabase
       .from('profiles')
-      .select(`
-        *,
-        memberships(status, end_date, membership_types(name)),
-        training_plans!assigned_to(name)
-      `, { count: 'exact' })
-      
+      .select(PROFILE_SELECT, { count: 'exact' })
+      // Los perfiles `claimed` son residuos del flujo de vinculación: su gemelo
+      // `registered` es el que tiene la cuenta y la membresía. Si no se ocultan,
+      // se cuelan como "sin membresía" aunque su gemelo tenga una activa.
+      .neq('registration_status', 'claimed')
+
     if (filters?.search) {
       const escaped = escapeSearch(filters.search)
-      query = query.or(
-        `full_name.ilike.%${escaped}%,email.ilike.%${escaped}%,phone.ilike.%${escaped}%`
-      )
+      query = query.ilike('full_name', `%${escaped}%`)
     }
 
     if (filters?.role) {
@@ -115,72 +213,50 @@ export const membersService = {
       query = query.eq('registration_status', filters.registration)
     }
 
-    const { data, error } = await query
+    // `not in` en trozos para no exceder el largo de la URL de PostgREST.
+    for (const chunk of chunked(excludedIds, 100)) {
+      query = query.not('id', 'in', `(${chunk.join(',')})`)
+    }
+
+    const { data, error, count } = await query
       .order('full_name', { ascending: true })
+      .range(from, to)
 
     if (error) throw error
 
-    const deduped = deduplicateProfiles(data || [])
+    let rows = (data ?? []) as unknown as ProfileRow[]
 
-    const memberIds = deduped.map(d => d.id).filter(Boolean)
-    let planAssignmentNames: Record<string, string[]> = {}
-    if (memberIds.length > 0) {
-      const { data: planAssignments } = await supabase
-        .from('plan_assignments')
-        .select('member_id, plan:training_plans(name)')
-        .in('member_id', memberIds)
-      for (const pa of planAssignments || []) {
-        const name = (pa.plan as any)?.name
-        if (name) {
-          if (!planAssignmentNames[pa.member_id]) planAssignmentNames[pa.member_id] = []
-          if (!planAssignmentNames[pa.member_id].includes(name)) {
-            planAssignmentNames[pa.member_id].push(name)
-          }
-        }
+    // El registro recién creado/editado se antepone aunque no caiga en esta
+    // página (se pide aparte y se respeta el tamaño de página).
+    const pinnedId = filters?.pinnedId
+    if (pinnedId && !rows.some((r) => r.id === pinnedId)) {
+      const { data: pinnedRow } = await supabase
+        .from('profiles')
+        .select(PROFILE_SELECT)
+        .eq('id', pinnedId)
+        .maybeSingle()
+      if (pinnedRow && matchesListFilters(pinnedRow as ProfileRow, filters)) {
+        rows = [pinnedRow as ProfileRow, ...rows].slice(0, pageSize)
       }
     }
 
-    const sorted = deduped
-      .map((raw) => {
-        const item = toMemberListItem(raw)
-        const merged = Array.from(new Set([...item.plan_names, ...(planAssignmentNames[raw.id] || [])]))
-        item.plan_names = merged
-        return item
-      })
-      .sort((a, b) =>
-        (ROLE_PRIORITY[a.role] ?? 99) - (ROLE_PRIORITY[b.role] ?? 99) ||
-        a.full_name.localeCompare(b.full_name)
-      )
-
-    const from = ((filters?.page ?? 1) - 1) * (filters?.pageSize ?? 20)
-    const to = from + (filters?.pageSize ?? 20)
+    const deduped = deduplicateProfiles<ProfileRow>(rows)
 
     return {
-      data: sorted.slice(from, to),
-      count: deduped.length,
+      data: deduped.map(toMemberListItem),
+      count: count ?? 0,
     }
   },
 
   getById: async (id: string): Promise<MemberListItem> => {
     const { data, error } = await supabase
       .from('profiles')
-      .select(`
-        *,
-        memberships(status, end_date, membership_types(name)),
-        training_plans!assigned_to(name)
-      `)
+      .select(PROFILE_SELECT)
       .eq('id', id)
       .single()
 
     if (error) throw error
-    const item = toMemberListItem(data)
-    const { data: pa } = await supabase
-      .from('plan_assignments')
-      .select('plan:training_plans(name)')
-      .eq('member_id', id)
-    const extra = (pa || []).map((p: any) => (p.plan as any)?.name).filter(Boolean)
-    item.plan_names = Array.from(new Set([...item.plan_names, ...extra]))
-    return item
+    return toMemberListItem(data as ProfileRow)
   },
 
   create: async (input: {
@@ -303,8 +379,8 @@ export const membersService = {
 
   update: async (id: string, input: Partial<{
     full_name: string
-    email: string
-    phone: string
+    email: string | null
+    phone: string | null
     avatar_url: string
     alias: string
     role: 'admin' | 'trainer' | 'member'
@@ -383,12 +459,12 @@ export const membersService = {
     return (data || []).map(toMemberListItem)
   },
     getStats: async () => {
-    await supabase.rpc('sync_membership_status')
-
     const { data: allProfiles, error: err1 } = await supabase
       .from('profiles')
       .select('id, full_name, email, alias, registration_status')
       .eq('role', 'member')
+      // Mismos perfiles que lista la vista (sin residuos `claimed`).
+      .neq('registration_status', 'claimed')
 
     if (err1) throw err1
 
@@ -404,7 +480,7 @@ export const membersService = {
 
     if (err2) throw err2
 
-    const activeIds = new Set((activeData || []).map((m: any) => m.member_id))
+    const activeIds = new Set(((activeData ?? []) as { member_id: string }[]).map((m) => m.member_id))
     const active = deduped.filter(p => activeIds.has(p.id)).length
     const inactive = deduped.filter(p => !activeIds.has(p.id) && p.registration_status !== 'pending').length
 

@@ -8,6 +8,8 @@ import { ListGroup } from '@/components/ui/molecules/ListGroup'
 import { ListTile } from '@/components/ui/molecules/ListTile'
 import { ExerciseFilterSheet } from '@/components/exercises/ExerciseFilterSheet'
 import { CreateExerciseSheet } from '@/components/exercises/CreateExerciseSheet'
+import { PageContainer } from '@/components/ui/layout/PageContainer'
+import { getErrorMessage } from '@/lib/helpers'
 
 const PAGE_SIZE = 40
 
@@ -51,10 +53,10 @@ export default function MyExercisesPage() {
       setResults(prev => (offset === 0 ? page : [...prev, ...page]))
       setHasMore(data.length > PAGE_SIZE)
       lastParamsRef.current = { q, equipment: eq, muscle: mu }
-    } catch (e: any) {
+    } catch (e) {
       if (offset === 0) setResults([])
       setHasMore(false)
-      setError(e?.message || 'No se pudo cargar el catálogo')
+      setError(getErrorMessage(e, 'No se pudo cargar el catálogo'))
     } finally {
       setLoading(false)
       setLoadingMore(false)
@@ -97,7 +99,7 @@ export default function MyExercisesPage() {
         }
       />
 
-      <div className="px-4 sm:px-5 py-4 flex-1 mx-auto w-full max-w-[560px]">
+      <PageContainer className="flex-1">
         <Input
           value={query}
           onChange={e => setQuery(e.target.value)}
@@ -109,7 +111,7 @@ export default function MyExercisesPage() {
           }
         />
 
-        <div className="flex gap-2 mt-3 overflow-x-auto pb-1">
+        <div className="flex gap-2 mt-3 overflow-x-auto scrollbar-none pb-1">
           <button
             type="button"
             onClick={() => setFilterMode('equipment')}
@@ -133,10 +135,10 @@ export default function MyExercisesPage() {
         <div className="mt-3">
           {loading ? (
             <div className="flex flex-col gap-2">
-              {[0, 1, 2, 3, 4].map(i => <div key={i} className="h-[72px] rounded-2xl skeleton" />)}
+              {[0, 1, 2, 3, 4].map(i => <div key={i} className="h-[72px] rounded-card skeleton" />)}
             </div>
           ) : error ? (
-            <div className="bg-surface rounded-2xl p-8 text-center flex flex-col items-center gap-3">
+            <div className="bg-surface rounded-card p-8 text-center flex flex-col items-center gap-3">
               <div className="text-[13px] text-text-3">{error}</div>
               <button
                 type="button"
@@ -147,7 +149,7 @@ export default function MyExercisesPage() {
               </button>
             </div>
           ) : results.length === 0 ? (
-            <div className="bg-surface rounded-2xl p-10 text-center flex flex-col items-center gap-2">
+            <div className="bg-surface rounded-card p-10 text-center flex flex-col items-center gap-2">
               <div className="w-12 h-12 rounded-full bg-surface2 text-text-3 flex items-center justify-center">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
                   <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
@@ -199,7 +201,7 @@ export default function MyExercisesPage() {
             </>
           )}
         </div>
-      </div>
+      </PageContainer>
 
       <ExerciseFilterSheet
         open={filterMode !== null}
@@ -214,6 +216,7 @@ export default function MyExercisesPage() {
       />
 
       <CreateExerciseSheet
+        key={createOpen ? 'o' : 'c'}
         open={createOpen}
         onClose={() => setCreateOpen(false)}
         userId={user?.id ?? ''}

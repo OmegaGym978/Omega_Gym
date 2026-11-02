@@ -51,4 +51,33 @@ export function fmtPhone(p: string | null) {
   return `${d.slice(0, 3)}-${d.slice(3, 6)}-${d.slice(6)}`
 }
 
+/**
+ * Mensaje legible de un error capturado con `catch (e)` sin tipar.
+ * Supabase lanza objetos con `message`; si no encaja, se usa el texto por defecto.
+ */
+export function getErrorMessage(e: unknown, fallback = 'Error inesperado'): string {
+  if (e instanceof Error && e.message) return e.message
+  if (typeof e === 'object' && e !== null && 'message' in e) {
+    const message = (e as { message?: unknown }).message
+    if (typeof message === 'string' && message) return message
+  }
+  if (typeof e === 'string' && e) return e
+  return fallback
+}
+
+/**
+ * Identificador único para una operación de escritura (clave de idempotencia).
+ * `crypto.randomUUID` sólo existe en contextos seguros; fuera de ellos se usa
+ * un UUID v4 generado a mano para no romper la operación.
+ */
+export function newRequestId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID()
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0
+    return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16)
+  })
+}
+
 export { AVATAR_COLORS }

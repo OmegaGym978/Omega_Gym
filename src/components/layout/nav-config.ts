@@ -1,3 +1,5 @@
+import { FINGERPRINT_ENABLED } from '@/lib/features'
+
 export interface NavLink {
   label: string
   href: string
@@ -31,8 +33,6 @@ export const NAV_ICONS: Record<string, string> = {
   more: '<circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/>',
 }
 
-const dev = import.meta.env.DEV
-
 const memberNav: RoleNav = {
   tabs: [
     { label: 'Inicio', href: '/my-plan', icon: 'home' },
@@ -40,9 +40,7 @@ const memberNav: RoleNav = {
     { label: 'Membresía', href: '/my-membership', icon: 'memberships' },
     { label: 'Perfil', href: '/my-profile', icon: 'profile' },
   ],
-  more: [
-    ...(dev ? [{ label: 'Asistencia', href: '/my-checkins', icon: 'checkin' }] : []),
-  ],
+  more: [],
   sections: [
     { section: 'Entrenar', items: [
       { label: 'Inicio', href: '/my-plan', icon: 'home' },
@@ -50,7 +48,6 @@ const memberNav: RoleNav = {
     ]},
     { section: 'Mi cuenta', items: [
       { label: 'Mi membresía', href: '/my-membership', icon: 'memberships' },
-      ...(dev ? [{ label: 'Asistencia', href: '/my-checkins', icon: 'checkin' }] : []),
       { label: 'Perfil', href: '/my-profile', icon: 'profile' },
     ]},
   ],
@@ -60,13 +57,13 @@ const adminNav: RoleNav = {
   tabs: [
     { label: 'Inicio', href: '/dashboard', icon: 'home' },
     { label: 'Miembros', href: '/members', icon: 'members' },
-    { label: 'Pagos', href: '/payments', icon: 'payments' },
-    { label: 'Perfil', href: '/my-profile', icon: 'profile' },
+    { label: 'Membresías', href: '/memberships', icon: 'memberships' },
+    { label: 'Planes', href: '/training-plans', icon: 'plans' },
   ],
   more: [
-    { label: 'Membresías', href: '/memberships', icon: 'memberships' },
-    { label: 'Planes', href: '/training-plans', icon: 'plans', badgeKey: 'pendingPayments' },
-    ...(dev ? [{ label: 'Huella', href: '/fingerprint', icon: 'fingerprint' }] : []),
+    { label: 'Pagos', href: '/payments', icon: 'payments', badgeKey: 'pendingPayments' },
+    { label: 'Perfil', href: '/my-profile', icon: 'profile' },
+    ...(FINGERPRINT_ENABLED ? [{ label: 'Huella', href: '/fingerprint', icon: 'fingerprint' }] : []),
   ],
   sections: [
     { section: 'Principal', items: [
@@ -77,7 +74,7 @@ const adminNav: RoleNav = {
       { label: 'Membresías', href: '/memberships', icon: 'memberships' },
       { label: 'Pagos', href: '/payments', icon: 'payments', badgeKey: 'pendingPayments' },
       { label: 'Planes de entrenamiento', href: '/training-plans', icon: 'plans' },
-      ...(dev ? [{ label: 'Registro de huella', href: '/fingerprint', icon: 'fingerprint' }] : []),
+      ...(FINGERPRINT_ENABLED ? [{ label: 'Registro de huella', href: '/fingerprint', icon: 'fingerprint' }] : []),
     ]},
     { section: 'Cuenta', items: [
       { label: 'Mi perfil', href: '/my-profile', icon: 'profile' },

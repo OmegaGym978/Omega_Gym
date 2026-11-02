@@ -1,5 +1,4 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/atoms/Button';
 import { Badge } from '@/components/ui/atoms/Badge';
 import { IconButton } from '@/components/ui/atoms/IconButton';
@@ -7,11 +6,17 @@ import { LoadingSpinner } from '@/components/ui/atoms/LoadingSpinner';
 import { ScreenHeader } from '@/components/ui/layout/ScreenHeader';
 import { SearchInput } from '@/components/ui/molecules/SearchInput';
 import { TabBar } from '@/components/ui/molecules/TabBar';
+import { MonthPicker } from '@/components/ui/molecules/MonthPicker';
+import { BottomSheet } from '@/components/ui/molecules/BottomSheet';
+import { ListGroup } from '@/components/ui/molecules/ListGroup';
+import { ListTile } from '@/components/ui/molecules/ListTile';
 import { Pagination } from '@/components/ui/molecules/Pagination';
-import { IconEye, IconEdit } from '@/lib/icons';
+import { IconEdit, IconDots, IconChevronLeft, IconChevronRight, IconCalendar, IconRefresh, IconClose, IconDownload } from '@/lib/icons';
 import { MetricCard } from '@/components/ui/atoms/MetricCard';
-import { initials, fmtDate, fmtMoney, fmtPhone, avatarIndex, AVATAR_COLORS } from '@/lib/helpers';
-import { paymentsService, type PaymentListItem } from '@/services/payments.service';
+import { initials, fmtDate, fmtMoney, avatarIndex, getErrorMessage, AVATAR_COLORS } from '@/lib/helpers';
+import { useScrollTopOnPageChange } from '@/hooks/useScrollTopOnPageChange';
+import { paymentsService } from '@/services/payments.service';
+import { rangeBounds, exportPaymentsPdf } from '@/lib/payments-pdf';
 import { useCacheStore } from '@/store/cache.store';
 import { Modal } from '@/components/ui/molecules/Modal';
 import { ResponsiveTable, type Column } from '@/components/ui/molecules/ResponsiveTable';
@@ -50,20 +55,29 @@ export default function PaymentsPage() {
   const [error, setError] = useState<string | null>(null);
   const [currentFilter, setCurrentFilter] = useState<FilterKey>('all');
   const [currentPage, setCurrentPage] = useState(1);
+  useScrollTopOnPageChange(currentPage);
   const [search, setSearch] = useState('');
   const [searchInput, setSearchInput] = useState('');
   const [monthRevenue, setMonthRevenue] = useState({ collected: 0, pending: 0 });
 
-  const [memberList, setMemberList] = useState<MemberListItem[]>([]);
   const [receiptTarget, setReceiptTarget] = useState<Payment | null>(null);
-  const [previewTarget, setPreviewTarget] = useState<Payment | null>(null);
-  const [previewMember, setPreviewMember] = useState<MemberListItem | null>(null);
-  const [previewLoading, setPreviewLoading] = useState(false);
   const [editTarget, setEditTarget] = useState<Payment | null>(null);
   const [editStatus, setEditStatus] = useState<PaymentStatus>('paid');
   const [editSaving, setEditSaving] = useState(false);
+  const [optionsOpen, setOptionsOpen] = useState(false);
+  /** Cambia para forzar una recarga manual desde el menú de opciones. */
+  const [reloadKey, setReloadKey] = useState(0);
 
-  const cache = useCacheStore();
+  // Exportación del rango de meses a PDF.
+  const [exportOpen, setExportOpen] = useState(false);
+  const [exportFromYear, setExportFromYear] = useState(() => new Date().getFullYear());
+  const [exportFromMonth, setExportFromMonth] = useState(() => new Date().getMonth());
+  const [exportToYear, setExportToYear] = useState(() => new Date().getFullYear());
+  const [exportToMonth, setExportToMonth] = useState(() => new Date().getMonth());
+  const [exporting, setExporting] = useState(false);
+
+  const cacheGet = useCacheStore((s) => s.get);
+  const cacheSet = useCacheStore((s) => s.set);
 
   const today = new Date();
   const [viewYear, setViewYear] = useState(today.getFullYear());
@@ -76,9 +90,93 @@ export default function PaymentsPage() {
     return { monthStart: start, monthEnd: end };
   }, [viewYear, viewMonth]);
 
-  const monthLabel = useMemo(() =>
-    new Date(viewYear, viewMonth).toLocaleDateString('es-MX', { month: 'long', year: 'numeric' }),
-  [viewYear, viewMonth]);
+  const changeMonth = (delta: number) => {
+    const base = new Date(viewYear, viewMonth + delta, 1);
+    setViewYear(base.getFullYear());
+    setViewMonth(base.getMonth());
+    setCurrentPage(1);
+  };
+
+  const goToCurrentMonth = () => {
+    const now = new Date();
+    setViewYear(now.getFullYear());
+    setViewMonth(now.getMonth());
+    setCurrentPage(1);
+  };
+
+  const clearFilters = () => {
+    setSearchInput('');
+    setSearch('');
+    setCurrentFilter('all');
+    setCurrentPage(1);
+  };
+
+  /** Abre la hoja de exportación con el mes que se está viendo en ambos extremos. */
+  const openExport = () => {
+    setExportFromYear(viewYear);
+    setExportFromMonth(viewMonth);
+    setExportToYear(viewYear);
+    setExportToMonth(viewMonth);
+    setExportOpen(true);
+  };
+
+  const exportMonthIndexFrom = exportFromYear * 12 + exportFromMonth;
+  const exportMonthIndexTo = exportToYear * 12 + exportToMonth;
+  const exportRangeInvalid = exportMonthIndexFrom > exportMonthIndexTo;
+
+  const handleExport = async (mode: 'download' | 'preview') => {
+    if (exporting || exportRangeInvalid) return;
+
+    // La pestaña de vista previa se abre dentro del gesto del usuario: si se
+    // abriera después del `await`, el navegador la bloquearía.
+    const previewWindow = mode === 'preview' ? window.open('', '_blank') : null;
+
+    setExporting(true);
+    try {
+      const { from, to } = rangeBounds(
+        exportFromYear,
+        exportFromMonth,
+        exportToYear,
+        exportToMonth
+      );
+      const result = await paymentsService.getAll({
+        page: 1,
+        pageSize: 1000,
+        dateFrom: from,
+        dateTo: to,
+      });
+
+      if (result.data.length === 0) {
+        previewWindow?.close();
+        toast.error('No hay pagos registrados en ese periodo.');
+        return;
+      }
+
+      const delivered = await exportPaymentsPdf(
+        {
+          fromYear: exportFromYear,
+          fromMonth: exportFromMonth,
+          toYear: exportToYear,
+          toMonth: exportToMonth,
+          payments: result.data,
+        },
+        mode,
+        previewWindow
+      );
+
+      setExportOpen(false);
+      toast.success(
+        delivered === 'preview'
+          ? 'Vista previa abierta en una nueva pestaña.'
+          : 'PDF descargado.'
+      );
+    } catch (e) {
+      previewWindow?.close();
+      toast.error('No se pudo generar el PDF: ' + getErrorMessage(e, 'Intenta de nuevo.'));
+    } finally {
+      setExporting(false);
+    }
+  };
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -87,8 +185,6 @@ export default function PaymentsPage() {
     }, 400)
     return () => clearTimeout(t)
   }, [searchInput])
-
-  const navigate = useNavigate();
 
   const handleEditSave = useCallback(async () => {
     if (!editTarget) return;
@@ -120,28 +216,19 @@ export default function PaymentsPage() {
       })));
       setCount(result.count);
       toast.success('Estado actualizado correctamente');
-    } catch (e: any) {
-      toast.error('Error al actualizar: ' + e.message);
+    } catch (e) {
+      toast.error('Error al actualizar: ' + getErrorMessage(e, 'Intenta de nuevo.'));
     } finally {
       setEditSaving(false);
     }
   }, [editTarget, editStatus, monthRange, currentPage, currentFilter, search]);
 
   useEffect(() => {
-    if (!previewTarget) { setPreviewMember(null); return; }
-    setPreviewLoading(true);
-    membersService.getById(previewTarget.member_id)
-      .then(setPreviewMember)
-      .catch(() => setPreviewMember(null))
-      .finally(() => setPreviewLoading(false));
-  }, [previewTarget]);
-
-  useEffect(() => {
     async function load() {
       setLoading(true);
       setError(null);
       try {
-        const [result, mList, rev] = await Promise.all([
+        const [result, , rev] = await Promise.all([
           paymentsService.getAll({
             page: currentPage,
             pageSize: ROWS_PER_PAGE,
@@ -151,10 +238,10 @@ export default function PaymentsPage() {
             dateTo: monthRange.monthEnd,
           }),
           (() => {
-            const cached = cache.get<MemberListItem[]>('member_list')
+            const cached = cacheGet<MemberListItem[]>('member_list')
             if (cached) return { data: cached }
             return membersService.getAll({ pageSize: 200 }).then(r => {
-              cache.set('member_list', r.data)
+              cacheSet('member_list', r.data)
               return r
             })
           })(),
@@ -175,16 +262,15 @@ export default function PaymentsPage() {
           av: avatarIndex(p.id),
         })));
         setCount(result.count);
-        setMemberList(mList.data);
         setMonthRevenue(rev);
-      } catch (e: any) {
-        setError(e.message);
+      } catch (e) {
+        setError(getErrorMessage(e, 'No se pudieron cargar los pagos.'));
       } finally {
         setLoading(false);
       }
     }
     load();
-  }, [monthRange, currentPage, currentFilter, search]);
+  }, [monthRange, currentPage, currentFilter, search, reloadKey, cacheGet, cacheSet]);
 
   const totalPages = Math.max(1, Math.ceil(count / ROWS_PER_PAGE));
 
@@ -259,12 +345,9 @@ export default function PaymentsPage() {
       label: '',
       render: (p) => (
         <div className="flex justify-end">
-          <div className="flex gap-1.5">
+          <div className="flex items-center gap-3">
           <IconButton title="Ver recibo" onClick={() => setReceiptTarget(p)}>
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /><polyline points="10 9 9 9 8 9" /></svg>
-          </IconButton>
-          <IconButton title="Ver detalle" onClick={() => setPreviewTarget(p)}>
-            <IconEye width="13" height="13" />
           </IconButton>
           <IconButton title="Editar estado" onClick={() => { setEditTarget(p); setEditStatus(p.status); }}>
             <IconEdit width="13" height="13" />
@@ -277,44 +360,84 @@ export default function PaymentsPage() {
 
   return (
     <>
-      <ScreenHeader title="Pagos" subtitle={`Pagos y transacciones de ${monthLabel}`} wide />
+      <ScreenHeader
+        title="Pagos"
+        subtitle="Historial y cobros del gimnasio"
+        wide
+        menu={false}
+        actions={
+          <>
+            <IconButton title="Exportar pagos" onClick={openExport}>
+              <IconDownload width="16" height="16" />
+            </IconButton>
+            <IconButton title="Opciones" onClick={() => setOptionsOpen(true)}>
+              <IconDots width="16" height="16" />
+            </IconButton>
+          </>
+        }
+      />
 
-      <div className="px-4 sm:px-6 py-4 flex-1 mx-auto w-full max-w-[1100px]">
-        <div className="grid grid-cols-2 gap-3 mb-6">
+      <div className="px-4 sm:px-6 py-4 flex-1 mx-auto w-full max-w-[720px]">
+        <div className="grid grid-cols-2 gap-4 mb-6">
           <div className="animate-slide-up stagger-1">
             <MetricCard icon={
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-full h-full"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18" /><polyline points="17 6 23 6 23 12" /></svg>
-            } color="green" value={fmtMoney(monthRevenue.collected)} label="Recaudado" delta={`Recaudado en ${monthLabel}`} deltaType="up" />
+            } color="green" neutralValue value={fmtMoney(monthRevenue.collected)} label="Recaudado" />
           </div>
           <div className="animate-slide-up stagger-2">
             <MetricCard icon={
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-full h-full"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
-            } color="amber" value={fmtMoney(monthRevenue.pending)} label="Pendiente" delta={`Pendiente en ${monthLabel}`} deltaType="down" />
+            } color="amber" neutralValue value={fmtMoney(monthRevenue.pending)} label="Pendiente" />
           </div>
         </div>
 
-        {/* MONTH NAV */}
-        <div className="flex items-center gap-3 mb-4">
-          <button onClick={() => {
-            if (viewMonth === 0) { setViewYear(viewYear - 1); setViewMonth(11); }
-            else setViewMonth(viewMonth - 1);
-            setCurrentPage(1);
-          }} className="w-7 h-7 flex items-center justify-center rounded bg-surface2 transition-colors text-text-3" title="Mes anterior">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4"><polyline points="15 18 9 12 15 6" /></svg>
+        {/* NAVEGADOR DE MES */}
+        <div className="flex items-center justify-center gap-3 mb-4">
+          <button
+            type="button"
+            onClick={() => changeMonth(-1)}
+            aria-label="Mes anterior"
+            className="w-9 h-9 flex items-center justify-center rounded-full bg-surface text-text-2 border-none cursor-pointer active:opacity-70 transition-colors"
+          >
+            <IconChevronLeft width="16" height="16" />
           </button>
-          <span className="text-[13px] font-medium text-text-1 capitalize min-w-[140px] text-center">{monthLabel}</span>
-          <button onClick={() => {
-            if (viewMonth === 11) { setViewYear(viewYear + 1); setViewMonth(0); }
-            else setViewMonth(viewMonth + 1);
-            setCurrentPage(1);
-          }} className="w-7 h-7 flex items-center justify-center rounded bg-surface2 transition-colors text-text-3" title="Mes siguiente">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4"><polyline points="9 18 15 12 9 6" /></svg>
+
+          <MonthPicker
+            year={viewYear}
+            month={viewMonth}
+            onChange={(year, month) => {
+              setViewYear(year);
+              setViewMonth(month);
+              setCurrentPage(1);
+            }}
+          />
+
+          <button
+            type="button"
+            onClick={() => changeMonth(1)}
+            aria-label="Mes siguiente"
+            className="w-9 h-9 flex items-center justify-center rounded-full bg-surface text-text-2 border-none cursor-pointer active:opacity-70 transition-colors"
+          >
+            <IconChevronRight width="16" height="16" />
           </button>
         </div>
 
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 mb-4">
-          <SearchInput value={searchInput} onChange={setSearchInput} placeholder="Buscar miembro, concepto o email..." />
-          <TabBar tabs={filters} active={currentFilter} onChange={(k) => { setCurrentFilter(k as FilterKey); setCurrentPage(1); }} />
+        {/* BUSCADOR + FILTROS (scroll horizontal en móvil) */}
+        <div className="scrollbar-none -mx-4 px-4 mb-4 flex items-center gap-2 overflow-x-auto whitespace-nowrap sm:mx-0 sm:px-0">
+          <div className="w-[210px] shrink-0 sm:w-auto sm:min-w-[220px] sm:flex-1">
+            <SearchInput
+              variant="inset"
+              value={searchInput}
+              onChange={setSearchInput}
+              placeholder="Buscar miembro..."
+            />
+          </div>
+          <TabBar
+            tabs={filters}
+            active={currentFilter}
+            onChange={(k) => { setCurrentFilter(k as FilterKey); setCurrentPage(1); }}
+            className="shrink-0 overflow-visible"
+          />
         </div>
 
         {loading && <LoadingSpinner text="Cargando pagos…" />}
@@ -324,8 +447,8 @@ export default function PaymentsPage() {
         )}
 
         {!loading && !error && (
-          <div className="animate-slide-up stagger-5 bg-surface  rounded overflow-hidden">
-            <div className="px-3 sm:px-5 py-3 sm:py-4 border-b border-border">
+          <div className="animate-slide-up stagger-5 bg-surface rounded-[24px] overflow-hidden">
+            <div className="px-3 sm:px-5 py-3 sm:py-4">
               <div className="flex items-center gap-2.5">
                 <div className="w-7 h-7 rounded-2xl bg-amber-bg text-amber-text flex items-center justify-center">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2"/></svg>
@@ -371,12 +494,9 @@ export default function PaymentsPage() {
               ]}
               cardActions={(p: Payment) => (
                 <div className="flex">
-                  <div className="ml-auto flex gap-1.5">
+                  <div className="ml-auto flex items-center gap-3">
                     <IconButton title="Ver recibo" onClick={() => setReceiptTarget(p)}>
                       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /><polyline points="10 9 9 9 8 9" /></svg>
-                    </IconButton>
-                    <IconButton title="Ver detalle" onClick={() => setPreviewTarget(p)}>
-                      <IconEye width="13" height="13" />
                     </IconButton>
                     <IconButton title="Editar estado" onClick={() => { setEditTarget(p); setEditStatus(p.status); }}>
                       <IconEdit width="13" height="13" />
@@ -399,94 +519,6 @@ export default function PaymentsPage() {
           </div>
         )}
       </div>
-
-      <Modal compact icon={
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-accent">
-          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-          <circle cx="12" cy="7" r="4" />
-        </svg>
-      } title="PREVIEW" open={previewTarget !== null} onClose={() => setPreviewTarget(null)}>
-        {previewLoading ? (
-          <div className="flex flex-col items-center py-10 gap-4">
-            <div className="w-[64px] h-[64px] rounded-full bg-surface2 animate-pulse" />
-            <div className="w-32 h-4 rounded bg-surface2 animate-pulse" />
-            <div className="w-20 h-5 rounded-2xl bg-surface2 animate-pulse" />
-            <div className="w-full space-y-3 mt-4">
-              <div className="h-4 rounded bg-surface2 animate-pulse" />
-              <div className="h-4 w-2/3 rounded bg-surface2 animate-pulse" />
-              <div className="grid grid-cols-2 gap-3 mt-6">
-                <div className="h-[52px] rounded bg-surface2 animate-pulse" />
-                <div className="h-[52px] rounded bg-surface2 animate-pulse" />
-                <div className="h-[52px] rounded bg-surface2 animate-pulse" />
-                <div className="h-[52px] rounded bg-surface2 animate-pulse" />
-              </div>
-            </div>
-          </div>
-        ) : previewMember && previewTarget ? (
-          <div className="flex flex-col gap-0">
-            <div className="flex flex-col items-center mb-6">
-              <div className="w-[64px] h-[64px] rounded-full flex items-center justify-center text-[22px] font-semibold mb-3"
-                style={{ background: AVATAR_COLORS[avatarIndex(previewMember.id)].bg, color: AVATAR_COLORS[avatarIndex(previewMember.id)].fg }}>
-                {initials(previewMember.full_name)}
-              </div>
-              <div className="text-[17px] font-semibold">{previewMember.full_name}</div>
-              <div className="mt-1.5">
-                {previewMember.role === 'member' ? <Badge variant="gray" dot>Miembro</Badge> : previewMember.role === 'trainer' ? <Badge variant="purple" dot>Entrenador</Badge> : <Badge variant="accent" dot>Admin</Badge>}
-              </div>
-            </div>
-
-            <div className="border-t border-border pt-4 space-y-3.5">
-              <div className="flex items-center gap-3">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-text-3 shrink-0">
-                  <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
-                  <polyline points="22,6 12,13 2,6" />
-                </svg>
-                <span className="text-[12px] text-text-2">{previewMember.email}</span>
-              </div>
-              {previewMember.phone && (
-                <div className="flex items-center gap-3">
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-text-3 shrink-0">
-                    <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
-                  </svg>
-                  <span className="text-[12px] text-text-2">{fmtPhone(previewMember.phone)}</span>
-                </div>
-              )}
-            </div>
-
-            <div className="mt-6 pt-4 border-t border-border">
-              <div className="text-[11px] text-text-3 uppercase tracking-[0.08em] mb-3">Información del pago</div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="bg-surface2 rounded px-3 py-2.5">
-                  <div className="text-[10px] text-text-3 uppercase tracking-[0.06em]">Concepto</div>
-                  <div className="text-[13px] font-medium mt-0.5">{previewTarget!.concept}</div>
-                </div>
-                <div className="bg-surface2 rounded px-3 py-2.5">
-                  <div className="text-[10px] text-text-3 uppercase tracking-[0.06em]">Monto</div>
-                  <div className="text-[13px] font-mono font-semibold mt-0.5" style={{ color: previewTarget!.status === 'paid' ? 'var(--green-text)' : 'var(--amber-text)' }}>{fmtMoney(previewTarget!.amount)}</div>
-                </div>
-                <div className="bg-surface2 rounded px-3 py-2.5">
-                  <div className="text-[10px] text-text-3 uppercase tracking-[0.06em]">Método</div>
-                  <div className="text-[12px] font-medium mt-0.5" style={{ color: METHOD_COLORS[previewTarget!.method as PaymentMethod] }}>{METHOD_LABELS[previewTarget!.method as PaymentMethod]}</div>
-                </div>
-                <div className="bg-surface2 rounded px-3 py-2.5">
-                  <div className="text-[10px] text-text-3 uppercase tracking-[0.06em]">Estado</div>
-                  <div className="mt-0.5">
-                    {previewTarget!.status === 'paid' ? <Badge variant="green" dot>Pagado</Badge> : previewTarget!.status === 'pending' ? <Badge variant="amber" dot>Pendiente</Badge> : <Badge variant="red" dot>Cancelado</Badge>}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-6 pt-4 border-t border-border text-center">
-              <Button variant="primary" onClick={() => { setPreviewTarget(null); navigate(`/members/${previewTarget!.member_id}`); }}>
-                Ir a perfil completo
-              </Button>
-            </div>
-          </div>
-        ) : (
-          <div className="flex items-center justify-center py-16 text-text-3 text-[13px]">No se pudo cargar la información del miembro.</div>
-        )}
-      </Modal>
 
       <Modal compact icon={
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-accent">
@@ -623,6 +655,107 @@ export default function PaymentsPage() {
           </div>
         )}
       </Modal>
+
+      <BottomSheet
+        open={optionsOpen}
+        onClose={() => setOptionsOpen(false)}
+        title="Opciones"
+        subtitle="Pagos"
+        maxWidth="420px"
+      >
+        <ListGroup>
+          <ListTile
+            icon={<IconCalendar width="16" height="16" />}
+            title="Ir al mes actual"
+            onClick={() => { goToCurrentMonth(); setOptionsOpen(false); }}
+          />
+          <ListTile
+            icon={<IconRefresh width="16" height="16" />}
+            title="Recargar"
+            subtitle="Volver a consultar los pagos del mes"
+            onClick={() => { setReloadKey((k) => k + 1); setOptionsOpen(false); }}
+          />
+          <ListTile
+            icon={<IconClose width="16" height="16" />}
+            title="Limpiar filtros"
+            subtitle="Búsqueda, estado y página"
+            danger
+            onClick={() => { clearFilters(); setOptionsOpen(false); }}
+          />
+        </ListGroup>
+      </BottomSheet>
+
+      {/* Exportar pagos — reporte del mes seleccionado */}
+      <BottomSheet
+        open={exportOpen}
+        onClose={() => { if (!exporting) setExportOpen(false) }}
+        title={<span className="text-[22px] font-bold tracking-tight">Exportar pagos</span>}
+        panelClassName="bg-surface rounded-t-sheet"
+        maxWidth="440px"
+      >
+        <p className="-mt-1 mb-4 text-[13px] text-text-2">Selecciona el rango de meses</p>
+
+        <div className="overflow-hidden rounded-[24px] bg-surface2">
+          <div className="border-b border-surface3">
+            <MonthPicker
+              variant="list"
+              label="Desde"
+              year={exportFromYear}
+              month={exportFromMonth}
+              onChange={(year, month) => {
+                setExportFromYear(year);
+                setExportFromMonth(month);
+              }}
+              disabled={exporting}
+            />
+          </div>
+          <MonthPicker
+            variant="list"
+            label="Hasta"
+            year={exportToYear}
+            month={exportToMonth}
+            onChange={(year, month) => {
+              setExportToYear(year);
+              setExportToMonth(month);
+            }}
+            disabled={exporting}
+          />
+        </div>
+
+        {exportRangeInvalid && (
+          <p className="mt-3 px-1 text-[12px] text-red-text">
+            El mes «Desde» no puede ser posterior al mes «Hasta».
+          </p>
+        )}
+
+        <div className="mt-5 flex flex-col gap-1">
+          <Button
+            variant="primary"
+            size="lg"
+            className="w-full"
+            onClick={() => handleExport('download')}
+            disabled={exporting || exportRangeInvalid}
+          >
+            {exporting ? 'Generando…' : 'Descargar PDF'}
+          </Button>
+          <button
+            type="button"
+            onClick={() => handleExport('preview')}
+            disabled={exporting || exportRangeInvalid}
+            className="w-full h-14 rounded-full bg-surface2 text-text text-[16px] font-semibold border-none cursor-pointer font-sans active:opacity-70 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            Vista previa
+          </button>
+          <button
+            type="button"
+            onClick={() => setExportOpen(false)}
+            disabled={exporting}
+            className="w-full h-11 rounded-full bg-transparent text-accent text-[14px] font-semibold border-none cursor-pointer font-sans active:opacity-70 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            Cancelar
+          </button>
+        </div>
+      </BottomSheet>
     </>
   );
 }

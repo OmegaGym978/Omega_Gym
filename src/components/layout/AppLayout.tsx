@@ -43,6 +43,11 @@ export function AppLayout() {
     badge: item.badgeKey === 'pendingPayments' ? pending : undefined,
   }))
 
+  const moreBadges = nav.more.reduce<Record<string, number>>((acc, item) => {
+    if (item.badgeKey === 'pendingPayments' && pending > 0) acc[item.href] = pending
+    return acc
+  }, {})
+
   const moreActive = nav.more.some(
     item => pathname === item.href || pathname.startsWith(item.href + '/'),
   )
@@ -59,7 +64,7 @@ export function AppLayout() {
 
       <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
 
-      <main className="flex flex-col min-h-dvh pb-24 lg:pb-28">
+      <main className="flex flex-col min-h-dvh pb-24 lg:pb-28 mx-auto w-full max-w-[560px] lg:max-w-[720px]">
         <Outlet />
       </main>
 
@@ -75,6 +80,7 @@ export function AppLayout() {
         onClose={() => setMoreOpen(false)}
         items={nav.more}
         icons={NAV_ICONS}
+        badges={moreBadges}
         onSettings={() => setSettingsOpen(true)}
         roleLabel={roleLabel}
       />

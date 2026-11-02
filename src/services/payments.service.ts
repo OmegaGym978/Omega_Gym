@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase'
+import { one, type Embedded } from '@/lib/embed'
 
 function escapeSearch(s: string): string {
   return s.replace(/[%_\\]/g, '\\$&')
@@ -44,6 +45,24 @@ export interface RevenueSummary {
   total_pending: number
   total_cancelled: number
   today_collected: number
+}
+
+/* Relaciones embebidas por PostgREST: `one()` normaliza objeto o arreglo. */
+interface PaymentRow {
+  id: string
+  amount: number
+  payment_date: string
+  method: PaymentListItem['method']
+  status: PaymentListItem['status']
+  memberships: Embedded<{
+    member_id: string
+    profiles: Embedded<{ full_name: string | null; email: string | null }>
+    membership_types: Embedded<{ name: string | null; price: number | string | null }>
+  }>
+}
+
+type PaymentWithType = Payment & {
+  memberships?: Embedded<{ membership_types: Embedded<{ name: string | null }> }>
 }
 
 export const paymentsService = {
@@ -108,14 +127,15 @@ export const paymentsService = {
     if (error) throw error
 
     return {
-      data: (data || []).map((p: any) => {
-        const typePrice = p.memberships?.membership_types?.price
+      data: ((data ?? []) as PaymentRow[]).map((p) => {
+        const membership = one(p.memberships)
+        const typePrice = one(membership?.membership_types)?.price
         return {
           id: p.id,
-          member_id: p.memberships?.member_id ?? '',
-          member_name: p.memberships?.profiles?.full_name ?? '—',
-          member_email: p.memberships?.profiles?.email ?? null,
-          concept: `${p.memberships?.membership_types?.name ?? 'Membresía'}`,
+          member_id: membership?.member_id ?? '',
+          member_name: one(membership?.profiles)?.full_name ?? '—',
+          member_email: one(membership?.profiles)?.email ?? null,
+          concept: `${one(membership?.membership_types)?.name ?? 'Membresía'}`,
           amount: p.amount,
           expected_amount: typePrice != null ? Number(typePrice) : null,
           date: p.payment_date,
@@ -142,8 +162,8 @@ export const paymentsService = {
         .gte('payment_date', dateFrom)
         .lte('payment_date', dateTo),
     ])
-    const sum = (arr: any[] | null) =>
-      (arr || []).reduce((acc: number, p: any) => acc + Number(p.amount), 0)
+    const sum = (arr: { amount: number | string }[] | null) =>
+      (arr || []).reduce((acc, p) => acc + Number(p.amount), 0)
     return {
       collected: sum(paid.data),
       pending: sum(pending.data),
@@ -185,8 +205,8 @@ export const paymentsService = {
     if (cancelled.error) console.error('Revenue cancelled query failed:', cancelled.error)
     if (todayCollected.error) console.error('Revenue todayCollected query failed:', todayCollected.error)
 
-    const sum = (arr: any[] | null) =>
-      (arr || []).reduce((acc: number, p: any) => acc + Number(p.amount), 0)
+    const sum = (arr: { amount: number | string }[] | null) =>
+      (arr || []).reduce((acc, p) => acc + Number(p.amount), 0)
 
     return {
       total_collected: sum(collected.data),
@@ -274,11 +294,13 @@ export const paymentsService = {
       .order('payment_date', { ascending: false })
 
     if (error) throw error
-    return (data || []).map((p: any) => ({
-      ...p,
-      concept: p.memberships?.membership_types?.name ?? null,
-      memberships: undefined,
-    })) as Payment[]
+    return ((data ?? []) as PaymentWithType[]).map((p): Payment => {
+      const { memberships, ...rest } = p
+      return {
+        ...rest,
+        concept: one(one(memberships)?.membership_types)?.name ?? undefined,
+      }
+    })
   },
 
   getMonthlyRevenue: async (year?: number): Promise<{ month: number; amount: number }[]> => {

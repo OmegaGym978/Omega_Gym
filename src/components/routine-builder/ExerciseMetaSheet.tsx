@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { BottomSheet } from '@/components/ui/molecules/BottomSheet'
 import type { BuilderExercise } from './types'
 
@@ -42,20 +42,14 @@ const SUBTITLES: Record<ExerciseMetaMode, string> = {
 }
 
 export function ExerciseMetaSheet({ open, mode, exercise, onClose, onSave }: Props) {
-  const [note, setNote] = useState('')
-  const [link, setLink] = useState('')
-  const [customRest, setCustomRest] = useState('')
-
-  useEffect(() => {
-    if (!open || !exercise) return
-    setNote(exercise.notes ?? '')
-    setLink(exercise.reference_link ?? '')
-    setCustomRest(
-      exercise.rest_seconds != null && !REST_OPTIONS.some(o => o.value === exercise.rest_seconds)
-        ? String(exercise.rest_seconds)
-        : '',
-    )
-  }, [open, exercise])
+  // Estado sembrado al montar; el padre remonta con `key` en cada apertura.
+  const [note, setNote] = useState(() => exercise?.notes ?? '')
+  const [link, setLink] = useState(() => exercise?.reference_link ?? '')
+  const [customRest, setCustomRest] = useState(() =>
+    exercise?.rest_seconds != null && !REST_OPTIONS.some(o => o.value === exercise.rest_seconds)
+      ? String(exercise.rest_seconds)
+      : '',
+  )
 
   if (!exercise) return null
 
@@ -93,7 +87,7 @@ export function ExerciseMetaSheet({ open, mode, exercise, onClose, onSave }: Pro
             value={note}
             onChange={e => setNote(e.target.value)}
             placeholder="Técnica, sensaciones, indicaciones..."
-            className="w-full bg-surface2 border border-border2 rounded-2xl px-4 py-3 text-[14px] text-text outline-none resize-y min-h-[120px] focus:border-accent/60 transition-colors"
+            className="w-full bg-surface2 border-none rounded-2xl px-4 py-3 text-[14px] text-text outline-none resize-y min-h-[120px] placeholder:text-text-2 focus:ring-2 focus:ring-accent/30 transition-shadow"
           />
           <div className="mt-4 flex gap-2">
             <button
@@ -147,7 +141,7 @@ export function ExerciseMetaSheet({ open, mode, exercise, onClose, onSave }: Pro
                 value={customRest}
                 onChange={e => setCustomRest(e.target.value)}
                 placeholder="Ej. 75"
-                className="flex-1 bg-surface2 border border-border2 rounded-2xl px-4 py-3 text-[15px] text-text outline-none focus:border-accent/60 transition-colors"
+                className="flex-1 bg-surface2 border-none rounded-2xl px-4 py-3 text-[15px] text-text outline-none placeholder:text-text-2 focus:ring-2 focus:ring-accent/30 transition-shadow"
               />
               <button
                 type="button"
@@ -169,7 +163,7 @@ export function ExerciseMetaSheet({ open, mode, exercise, onClose, onSave }: Pro
             value={link}
             onChange={e => setLink(e.target.value)}
             placeholder="youtube.com/watch?v=..."
-            className="w-full bg-surface2 border border-border2 rounded-2xl px-4 py-3 text-[15px] text-text outline-none focus:border-accent/60 transition-colors"
+            className="w-full bg-surface2 border-none rounded-2xl px-4 py-3 text-[15px] text-text outline-none placeholder:text-text-2 focus:ring-2 focus:ring-accent/30 transition-shadow"
           />
           <p className="text-[11px] text-text-3 leading-relaxed mt-2">
             Si agregas un enlace a un GIF, se usará como imagen del ejercicio en la rutina.

@@ -5,6 +5,7 @@ import { ListTile } from '@/components/ui/molecules/ListTile'
 import { Checkmark } from '@/components/ui/atoms/Checkmark'
 import { ExerciseFilterSheet } from '@/components/exercises/ExerciseFilterSheet'
 import { equipmentLabel, muscleLabel } from '@/lib/exercise-labels'
+import { getErrorMessage } from '@/lib/helpers'
 
 const PAGE_SIZE = 40
 
@@ -19,13 +20,14 @@ interface Props {
 type FilterSheet = 'equipment' | 'muscle' | null
 
 export function ExerciseMultiPicker({ open, onClose, onConfirm, excludeIds }: Props) {
+  // El estado se reinicia al montar: el padre remonta con `key` en cada apertura.
   const [query, setQuery] = useState('')
   const [equipment, setEquipment] = useState('')
   const [muscle, setMuscle] = useState('')
   const [results, setResults] = useState<Exercise[]>([])
   const [selected, setSelected] = useState<Map<string, Exercise>>(new Map())
   const [hasMore, setHasMore] = useState(false)
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [filterSheet, setFilterSheet] = useState<FilterSheet>(null)
@@ -56,29 +58,15 @@ export function ExerciseMultiPicker({ open, onClose, onConfirm, excludeIds }: Pr
       setResults(prev => (offset === 0 ? page : [...prev, ...page]))
       setHasMore(more)
       lastParamsRef.current = { q, equipment: eq, muscle: mu }
-    } catch (e: any) {
+    } catch (e) {
       if (offset === 0) setResults([])
       setHasMore(false)
-      setError(e?.message || 'No se pudo cargar el catálogo')
+      setError(getErrorMessage(e, 'No se pudo cargar el catálogo'))
     } finally {
       setLoading(false)
       setLoadingMore(false)
     }
   }, [])
-
-  // Reinicio al abrir
-  useEffect(() => {
-    if (!open) return
-    setQuery('')
-    setEquipment('')
-    setMuscle('')
-    setSelected(new Map())
-    setFilterSheet(null)
-    setResults([])
-    setHasMore(false)
-    setError(null)
-    loadPage('', '', '', 0)
-  }, [open, loadPage])
 
   // Opciones de filtro (una sola vez)
   useEffect(() => {
@@ -139,7 +127,7 @@ export function ExerciseMultiPicker({ open, onClose, onConfirm, excludeIds }: Pr
               value={query}
               onChange={e => setQuery(e.target.value)}
               placeholder="Buscar ejercicio..."
-              className="w-full bg-surface2 border border-transparent text-text text-sm pl-10 pr-9 py-3 rounded-full outline-none placeholder:text-text-3 focus:border-accent/40 transition-colors"
+              className="w-full bg-surface2 border-none text-text text-sm pl-10 pr-9 py-3 rounded-full outline-none placeholder:text-text-2 focus:ring-2 focus:ring-accent/30 transition-shadow"
             />
             {query && (
               <button
@@ -164,7 +152,7 @@ export function ExerciseMultiPicker({ open, onClose, onConfirm, excludeIds }: Pr
           </button>
         </div>
 
-        <div className="flex gap-2 mt-3 overflow-x-auto pb-1">
+        <div className="flex gap-2 mt-3 overflow-x-auto scrollbar-none pb-1">
           <button
             onClick={() => setFilterSheet('equipment')}
             className={`shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-semibold border cursor-pointer transition-colors ${
@@ -195,7 +183,7 @@ export function ExerciseMultiPicker({ open, onClose, onConfirm, excludeIds }: Pr
       </div>
 
       {/* Lista */}
-      <div className="flex-1 overflow-y-auto px-2 py-1">
+      <div className="flex-1 overflow-y-auto scrollbar-none px-2 py-1">
         {loading ? (
           <div className="flex flex-col gap-2 p-2">
             {[0, 1, 2, 3, 4, 5].map(i => (

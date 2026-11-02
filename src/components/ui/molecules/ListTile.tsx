@@ -7,6 +7,8 @@ interface Props {
   icon?: ReactNode
   avatar?: ReactNode
   trailing?: ReactNode
+  /** Contador a la derecha, antes del chevron (p. ej. pagos pendientes). */
+  badge?: number
   chevron?: boolean
   href?: string
   onClick?: () => void
@@ -36,6 +38,7 @@ export function ListTile({
   icon,
   avatar,
   trailing,
+  badge,
   chevron,
   href,
   onClick,
@@ -65,7 +68,16 @@ export function ListTile({
         )}
       </span>
 
-      {trailing ?? (chevron ? <Chevron /> : null)}
+      {trailing ?? (
+        <span className="flex items-center gap-2 shrink-0">
+          {!!badge && badge > 0 && (
+            <span className="min-w-[20px] h-5 px-1.5 rounded-full bg-accent text-accent-contrast text-[10px] font-bold flex items-center justify-center">
+              {badge > 99 ? '99+' : badge}
+            </span>
+          )}
+          {chevron ? <Chevron /> : null}
+        </span>
+      )}
     </>
   )
 

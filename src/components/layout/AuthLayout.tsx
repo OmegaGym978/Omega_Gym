@@ -1,4 +1,4 @@
-import { Outlet } from 'react-router-dom'
+import { Link, Outlet } from 'react-router-dom'
 import { useThemeStore } from '@/store/theme.store'
 
 const sunPath = 'M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z'
@@ -8,7 +8,17 @@ export function AuthLayout() {
   const { theme, toggle } = useThemeStore()
 
   return (
-    <div className="min-h-dvh flex items-center justify-center bg-bg relative overflow-hidden px-4">
+    <div className="min-h-dvh flex items-center justify-center bg-bg relative overflow-hidden px-4 py-16" data-brand-accent="coral">
+      <Link
+        to="/"
+        className="fixed left-4 top-4 z-50 inline-flex h-10 items-center gap-1.5 rounded-full border border-border bg-surface/80 px-3.5 text-[12px] font-medium text-text-2 no-underline backdrop-blur transition-colors hover:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 active:opacity-70"
+      >
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <line x1="19" y1="12" x2="5" y2="12" />
+          <polyline points="12 19 5 12 12 5" />
+        </svg>
+        Volver al inicio
+      </Link>
       <button onClick={toggle}
         className="fixed top-4 right-4 z-50 w-9 h-9 rounded-full border border-border bg-surface flex items-center justify-center cursor-pointer text-text transition-colors"
         aria-label="Cambiar tema"

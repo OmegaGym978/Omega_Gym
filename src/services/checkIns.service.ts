@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase'
+import { one, type Embedded } from '@/lib/embed'
 
 export interface CheckIn {
   id: string
@@ -52,7 +53,7 @@ export const checkInsService = {
       .limit(1000)
 
     if (error) throw error
-    return (data || []).map((r: any) => r.check_in_time as string)
+    return ((data ?? []) as { check_in_time: string }[]).map((r) => r.check_in_time)
   },
 
   create: async (input: {
@@ -93,10 +94,14 @@ export const checkInsService = {
 
     if (error) throw error
 
-    return (data || []).map((c: any) => ({
-      ...c,
-      member_name: c.profiles?.full_name ?? '—',
-      member_email: c.profiles?.email ?? null,
-    }))
+    return ((data ?? []) as (CheckIn & { profiles: Embedded<{ full_name: string | null; email: string | null }> })[])
+      .map((c) => {
+        const { profiles, ...rest } = c
+        return {
+          ...rest,
+          member_name: one(profiles)?.full_name ?? '—',
+          member_email: one(profiles)?.email ?? null,
+        }
+      })
   },
 }

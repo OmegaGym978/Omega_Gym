@@ -10,6 +10,8 @@ interface Props {
   showClose?: boolean
   maxWidth?: string
   className?: string
+  /** Permite cambiar el fondo/radio del panel (por defecto bg-bg + rounded-t-sheet). */
+  panelClassName?: string
 }
 
 /**
@@ -26,6 +28,7 @@ export function BottomSheet({
   showClose = true,
   maxWidth = '560px',
   className = '',
+  panelClassName = '',
 }: Props) {
   useEffect(() => {
     if (!open) return
@@ -49,7 +52,7 @@ export function BottomSheet({
       />
 
       <div
-        className={`animate-sheet-in relative w-full flex flex-col max-h-[90vh] bg-bg rounded-t-3xl pb-[env(safe-area-inset-bottom,0px)] ${className}`}
+        className={`animate-sheet-in relative w-full flex flex-col max-h-[90vh] ${panelClassName || 'bg-bg rounded-t-sheet'} pb-[env(safe-area-inset-bottom,0px)] ${className}`}
         style={{ maxWidth }}
       >
         {/* Indicador de arrastre */}
@@ -78,7 +81,7 @@ export function BottomSheet({
           </div>
         )}
 
-        <div className="flex-1 overflow-y-auto px-5 pb-5">{children}</div>
+        <div className="flex-1 overflow-y-auto scrollbar-none px-5 pb-5">{children}</div>
 
         {footer && <div className="shrink-0 px-5 py-3 border-t border-divider">{footer}</div>}
       </div>

@@ -1,4 +1,3 @@
-import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/store/auth.store'
 import { useThemeStore } from '@/store/theme.store'
 import { ACCENT_PRESETS, useAccentStore } from '@/store/accent.store'
@@ -20,7 +19,6 @@ const ROLE_LABEL: Record<string, string> = {
 }
 
 export function SettingsModal({ open, onClose }: Props) {
-  const navigate = useNavigate()
   const user = useAuthStore((s) => s.user)
   const { theme, toggle } = useThemeStore()
   const { accent, setAccent } = useAccentStore()
@@ -31,7 +29,7 @@ export function SettingsModal({ open, onClose }: Props) {
   return (
     <BottomSheet open={open} onClose={onClose} title="Ajustes" maxWidth="480px">
       {/* Usuario */}
-      <div className="flex items-center gap-3 p-4 bg-surface2 rounded-2xl">
+      <div className="flex items-center gap-3 p-4 bg-surface2 rounded-tile">
         <div
           className="w-12 h-12 rounded-full flex items-center justify-center text-[16px] font-bold shrink-0"
           style={{ background: col.bg, color: col.fg }}
@@ -67,8 +65,8 @@ export function SettingsModal({ open, onClose }: Props) {
 
       {/* Acento */}
       <div className="mt-5">
-        <div className="text-[12px] font-semibold text-text-3 px-1 mb-2">Color de acento</div>
-        <div className="bg-surface rounded-2xl p-4 flex items-center gap-3 flex-wrap">
+        <div className="text-[12px] font-semibold text-text-2 px-1 mb-2">Color de acento</div>
+        <div className="bg-surface rounded-card p-5 grid grid-cols-4 gap-4 place-items-center">
           {ACCENT_PRESETS.map(preset => {
             const active = accent === preset.key
             return (
@@ -79,12 +77,15 @@ export function SettingsModal({ open, onClose }: Props) {
                 aria-label={`Acento ${preset.label}`}
                 aria-pressed={active}
                 title={preset.label}
-                className="w-9 h-9 rounded-full cursor-pointer transition-transform active:scale-95 border-none"
-                style={{
-                  background: preset.color,
-                  boxShadow: active ? `0 0 0 3px var(--bg), 0 0 0 5px ${preset.color}` : undefined,
-                }}
-              />
+                className="w-11 h-11 rounded-full cursor-pointer transition-transform active:scale-95 border-none flex items-center justify-center"
+                style={{ background: preset.color }}
+              >
+                {active && (
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={preset.contrast} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                )}
+              </button>
             )
           })}
         </div>
@@ -93,20 +94,6 @@ export function SettingsModal({ open, onClose }: Props) {
       {/* Cuenta */}
       <div className="mt-5">
         <ListGroup>
-          <ListTile
-            title="Ver perfil"
-            icon={
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                <circle cx="12" cy="7" r="4" />
-              </svg>
-            }
-            chevron
-            onClick={() => {
-              onClose()
-              navigate(user?.role === 'admin' ? `/members/${user?.id}` : '/my-profile')
-            }}
-          />
           <ListTile
             title="Cerrar sesión"
             danger

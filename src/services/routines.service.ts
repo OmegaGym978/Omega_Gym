@@ -22,6 +22,19 @@ export interface RoutineListItem {
   updated_at: string
 }
 
+/** Fila de `training_plans` con los ejercicios embebidos del listado. */
+interface RoutineRow {
+  id: string
+  name: string
+  description: string | null
+  share_code: string | null
+  show_in_plan: boolean | null
+  created_at: string
+  updated_at: string
+  scheduled_days?: number[] | null
+  plan_exercises?: { exercise_name: string; order_index: number }[] | null
+}
+
 export const routinesService = {
   /** Rutinas personales del dueño (RLS garantiza que solo sean las propias) */
   getMine: async (ownerId: string): Promise<RoutineListItem[]> => {
@@ -39,10 +52,12 @@ export const routinesService = {
     }
     if (result.error) throw result.error
 
-    const data = result.data
+    // El select es dinámico (columna `scheduled_days` opcional), así que la
+    // inferencia del cliente no aplica: se declara la forma esperada.
+    const data = result.data as unknown as RoutineRow[] | null
 
-    return (data || []).map((r: any): RoutineListItem => {
-      const rows = ((r.plan_exercises || []) as { exercise_name: string; order_index: number }[])
+    return (data ?? []).map((r): RoutineListItem => {
+      const rows = (r.plan_exercises ?? [])
         .slice()
         .sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0))
 

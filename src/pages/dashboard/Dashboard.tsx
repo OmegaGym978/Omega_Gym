@@ -1,11 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { MetricCard } from '@/components/ui/atoms/MetricCard';
-import { Badge } from '@/components/ui/atoms/Badge';
-import { ScreenHeader } from '@/components/ui/layout/ScreenHeader';
+import { PageContainer } from '@/components/ui/layout/PageContainer';
 import { useAuthStore } from '@/store/auth.store';
 import { useCacheStore } from '@/store/cache.store';
-import { dashboardService, type RecentActivityItem, type PendingPaymentItem, type DashboardKPIs } from '@/services/dashboard.service';
+import { dashboardService, type RecentActivityItem, type PendingPaymentItem, type DashboardKPIs, type ExpiringMembershipItem } from '@/services/dashboard.service';
 
 const AV_COLORS = [
   { bg: 'var(--accent-dim)', fg: 'var(--accent)' },
@@ -50,23 +48,65 @@ function timeAgo(iso: string): string {
   return `hace ${days} días`;
 }
 
+function initialsOf(name: string) {
+  return name.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
+}
+
+const ROW = 'flex items-center gap-3 px-5 py-3 border-b border-divider last:border-b-0 no-underline transition-opacity active:opacity-70';
+
+/** Tarjeta de métrica del bloque 2×2. */
+function StatTile({ icon, value, label, tone }: { icon: ReactNode; value: number; label: string; tone: string }) {
+  return (
+    <div className="bg-surface rounded-[24px] p-5">
+      <div className={`w-9 h-9 rounded-full flex items-center justify-center ${tone}`}>
+        <div className="w-4 h-4">{icon}</div>
+      </div>
+      <div className="text-[26px] font-bold leading-none mt-3">{value}</div>
+      <div className="text-[11px] text-text-2 mt-1.5 leading-tight">{label}</div>
+    </div>
+  );
+}
+
+/** Cabecera de sección agrupada. */
+function SectionHeader({
+  icon, tone, title, subtitle, trailing,
+}: {
+  icon: ReactNode; tone: string; title: string; subtitle?: string; trailing?: ReactNode;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3 px-5 pt-5 pb-3">
+      <div className="flex items-center gap-3 min-w-0">
+        <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${tone}`}>
+          <div className="w-4 h-4">{icon}</div>
+        </div>
+        <div className="min-w-0">
+          <div className="text-[15px] font-semibold truncate">{title}</div>
+          {subtitle && <div className="text-[11px] text-text-2 mt-0.5 truncate">{subtitle}</div>}
+        </div>
+      </div>
+      {trailing}
+    </div>
+  );
+}
+
 export default function DashboardPage() {
   const user = useAuthStore((s) => s.user);
   const [kpis, setKpis] = useState<DashboardKPIs | null>(null);
   const [pendingPayments, setPendingPayments] = useState<PendingPaymentItem[]>([]);
-  const [expiring, setExpiring] = useState<any[]>([]);
+  const [expiring, setExpiring] = useState<ExpiringMembershipItem[]>([]);
   const [activities, setActivities] = useState<RecentActivityItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const cache = useCacheStore();
+  const cacheGet = useCacheStore((s) => s.get);
+  const cacheSet = useCacheStore((s) => s.set);
 
   useEffect(() => {
     async function load() {
       setLoading(true);
       try {
-        const cachedKpis = cache.get<DashboardKPIs>('dashboard_kpis');
-        const cachedPending = cache.get<PendingPaymentItem[]>('dashboard_pending');
-        const cachedExpiring = cache.get<any[]>('dashboard_expiring');
-        const cachedActivity = cache.get<RecentActivityItem[]>('dashboard_activity');
+        const cachedKpis = cacheGet<DashboardKPIs>('dashboard_kpis');
+        const cachedPending = cacheGet<PendingPaymentItem[]>('dashboard_pending');
+        const cachedExpiring = cacheGet<ExpiringMembershipItem[]>('dashboard_expiring');
+        const cachedActivity = cacheGet<RecentActivityItem[]>('dashboard_activity');
 
         if (cachedKpis && cachedPending && cachedExpiring && cachedActivity) {
           setKpis(cachedKpis);
@@ -84,10 +124,10 @@ export default function DashboardPage() {
           setPendingPayments(pp);
           setExpiring(e);
           setActivities(a);
-          cache.set('dashboard_kpis', k);
-          cache.set('dashboard_pending', pp);
-          cache.set('dashboard_expiring', e);
-          cache.set('dashboard_activity', a);
+          cacheSet('dashboard_kpis', k);
+          cacheSet('dashboard_pending', pp);
+          cacheSet('dashboard_expiring', e);
+          cacheSet('dashboard_activity', a);
         }
       } catch (err) {
         console.error(err);
@@ -96,9 +136,9 @@ export default function DashboardPage() {
       }
     }
     load();
-  }, []);
+  }, [cacheGet, cacheSet]);
 
-  const activityIcons: Record<string, { icon: React.ReactNode; cls: string }> = {
+  const activityIcons: Record<string, { icon: ReactNode; cls: string }> = {
     check_in: { icon: <IconCheck />, cls: 'green' },
     new_member: { icon: <IconPlusMember />, cls: 'purple' },
     payment: { icon: <IconCreditCard />, cls: 'teal' },
@@ -113,180 +153,178 @@ export default function DashboardPage() {
     red: 'bg-red-bg text-red-text',
   };
 
-  const staggerClass = (i: number) => {
-    const map = ['stagger-1', 'stagger-2', 'stagger-3', 'stagger-4', 'stagger-5', 'stagger-6', 'stagger-7'];
-    return map[i] || 'stagger-1';
-  };
+  const firstName = user?.full_name?.split(' ')[0] || 'Admin';
 
   return (
     <>
       <div className="noise-overlay" />
-      <ScreenHeader title="Dashboard" subtitle={todayStr()} wide />
 
-      <div className="px-4 sm:px-6 py-4 flex-1 mx-auto w-full max-w-[1100px]">
-        <div className="relative mb-7 overflow-hidden rounded-3xl bg-surface  p-5 sm:p-7">
-          <div className="absolute inset-0 opacity-[0.04]"
-            style={{ background: 'radial-gradient(600px circle at 20% 30%, var(--accent), transparent)' }} />
-          <div className="relative">
-            <h1 className="text-[28px] sm:text-[34px] leading-tight font-display italic -tracking-[0.02em]">
-              Buenos días, {user?.full_name?.split(' ')[0] || 'Admin'} 👋
-            </h1>
-            <p className="text-[13px] sm:text-[14px] text-text-2 mt-1.5">
-              Resumen de Omega Gym — <span className="text-text">{todayStr()}</span>
-            </p>
-          </div>
-        </div>
+      <header className="safe-top px-4 sm:px-5 pt-3 pb-1">
+        <h1 className="font-ios text-[34px] font-bold leading-tight tracking-[-0.02em]">
+          Buenos días, {firstName}
+        </h1>
+        <p className="text-[13px] text-text-2 mt-1">{todayStr()}</p>
+      </header>
 
+      <PageContainer className="flex-1">
         {loading ? (
-          <div className="text-center py-[60px] text-text-3">Cargando dashboard…</div>
+          <div className="flex flex-col gap-4">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="h-[104px] rounded-[24px] skeleton" />
+              <div className="h-[104px] rounded-[24px] skeleton" />
+              <div className="h-[104px] rounded-[24px] skeleton" />
+              <div className="h-[104px] rounded-[24px] skeleton" />
+            </div>
+            <div className="h-[180px] rounded-[32px] skeleton" />
+            <div className="h-[180px] rounded-[32px] skeleton" />
+          </div>
         ) : (
-          <>
-            <div className="grid grid-cols-2 gap-3 mb-6 lg:grid-cols-4">
-              <div className={`animate-slide-up ${staggerClass(0)}`}>
-                <MetricCard icon={<IconPeople />} color="accent" value={kpis?.total_members ?? 0} label="Total de miembros" delta="Registrados" deltaType="up" />
-              </div>
-              <div className={`animate-slide-up ${staggerClass(1)}`}>
-                <MetricCard icon={<IconCard />} color="green" value={kpis?.active_memberships ?? 0} label="Membresías activas" delta="Vigentes" deltaType="up" />
-              </div>
-              <div className={`animate-slide-up ${staggerClass(2)}`}>
-                <MetricCard icon={<IconAlert />} color="red" value={kpis?.inactive_members ?? 0} label="Inactivos" delta="Sin membresía vigente" deltaType="down" />
-              </div>
-              <div className={`animate-slide-up ${staggerClass(3)}`}>
-                <MetricCard icon={<IconClock />} color="amber" value={kpis?.expiring_soon ?? 0} label="Vencen en 7 días" delta="Atención" deltaType="down" />
-              </div>
+          <div className="flex flex-col gap-4">
+            {/* Métricas 2×2 */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              <StatTile icon={<IconPeople />} value={kpis?.total_members ?? 0} label="Total de miembros" tone="bg-accent-dim text-accent" />
+              <StatTile icon={<IconCard />} value={kpis?.active_memberships ?? 0} label="Membresías activas" tone="bg-green-bg text-green-text" />
+              <StatTile icon={<IconAlert />} value={kpis?.inactive_members ?? 0} label="Inactivos" tone="bg-red-bg text-red-text" />
+              <StatTile icon={<IconClock />} value={kpis?.expiring_soon ?? 0} label="Vencen en 7 días" tone="bg-amber-bg text-amber-text" />
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 mb-5">
+            {/* Pagos pendientes */}
+            <section className="bg-surface rounded-[32px] overflow-hidden">
+              <SectionHeader
+                icon={<IconDollar />}
+                tone="bg-amber-bg text-amber-text"
+                title="Pagos pendientes"
+                subtitle="Requieren atención"
+                trailing={
+                  <span className="shrink-0 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-red-bg text-red-text">
+                    {pendingPayments.length}
+                  </span>
+                }
+              />
 
-              <div className={`animate-slide-up ${staggerClass(4)} bg-surface  rounded-2xl overflow-hidden`}>
-                <div className="flex items-center justify-between px-3 sm:px-5 py-3 sm:py-4 border-b border-border">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-7 h-7 rounded-2xl bg-amber-bg text-amber-text flex items-center justify-center">
-                      <div className="w-3.5 h-3.5"><IconDollar /></div>
-                    </div>
-                    <div>
-                      <div className="text-[13px] font-semibold">Pagos pendientes</div>
-                      <div className="text-[11px] text-text-3 mt-0.5 hidden sm:block">Requieren atención</div>
-                    </div>
+              {pendingPayments.length === 0 ? (
+                <div className="flex items-center gap-3 px-5 pb-4 text-text-2">
+                  <div className="w-8 h-8 rounded-full bg-green-bg text-green-text flex items-center justify-center shrink-0">
+                    <div className="w-4 h-4"><IconCheck /></div>
                   </div>
-                  <span className="text-[11px] font-medium px-[9px] py-[3px] rounded-full bg-red-bg text-red-text">{pendingPayments.length}</span>
+                  <span className="text-[13px]">Sin pagos pendientes</span>
                 </div>
+              ) : (
                 <div className="flex flex-col">
-                  {pendingPayments.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-8 sm:py-10 text-text-3">
-                      <div className="w-8 h-8 rounded-full bg-green-bg text-green-text flex items-center justify-center mb-2">
-                        <div className="w-4 h-4"><IconCheck /></div>
-                      </div>
-                      <div className="text-[12px]">Sin pagos pendientes</div>
-                    </div>
-                  ) : (
-                    pendingPayments.slice(0, 5).map((p) => (
-                      <div key={p.id} className="row-hover flex items-center justify-between px-3 sm:px-5 py-2.5 sm:py-3 border-b border-border">
-                        <div className="text-[13px] font-medium">{p.member_name}</div>
-                        <div className="text-[13px] font-semibold text-amber-text">${p.amount.toLocaleString()}</div>
-                      </div>
-                    ))
-                  )}
+                  {pendingPayments.slice(0, 5).map((p, i) => {
+                    const av = AV_COLORS[i % AV_COLORS.length];
+                    return (
+                      <Link key={p.id} to="/payments" className={ROW}>
+                        <span className="w-9 h-9 rounded-full flex items-center justify-center text-[11px] font-semibold shrink-0"
+                          style={{ background: av.bg, color: av.fg }}>
+                          {initialsOf(p.member_name)}
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block text-[14px] font-medium text-text truncate">{p.member_name}</span>
+                          <span className="block text-[11px] text-text-2 mt-0.5">Pago pendiente</span>
+                        </span>
+                        <span className="shrink-0 text-[14px] font-semibold text-amber-text">${p.amount.toLocaleString()}</span>
+                      </Link>
+                    );
+                  })}
                 </div>
-                <div className="px-3 sm:px-5 py-2.5 sm:py-3 border-t border-border">
-                  <Link to="/payments" className="text-[11px] text-text-3 no-underline cursor-pointer transition-colors">Ver todos los pagos →</Link>
-                </div>
-              </div>
+              )}
 
-              <div className={`animate-slide-up ${staggerClass(5)} bg-surface  rounded-2xl overflow-hidden`}>
-                <div className="flex items-center justify-between px-3 sm:px-5 py-3 sm:py-4 border-b border-border">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-7 h-7 rounded-2xl bg-amber-bg text-amber-text flex items-center justify-center">
-                      <div className="w-3.5 h-3.5"><IconTrending /></div>
-                    </div>
-                    <div>
-                      <div className="text-[13px] font-semibold">Membresías por vencer</div>
-                      <div className="text-[11px] text-text-3 mt-0.5">Próximos 7 días</div>
-                    </div>
+              <Link to="/payments" className="flex items-center justify-between px-5 py-3.5 border-t border-divider text-[13px] font-medium text-accent no-underline active:opacity-70">
+                Ver todos los pagos
+                <span aria-hidden="true">›</span>
+              </Link>
+            </section>
+
+            {/* Membresías por vencer */}
+            <section className="bg-surface rounded-[32px] overflow-hidden">
+              <SectionHeader
+                icon={<IconTrending />}
+                tone="bg-amber-bg text-amber-text"
+                title="Membresías por vencer"
+                subtitle="Próximos 7 días"
+              />
+
+              {expiring.length === 0 ? (
+                <div className="flex items-center gap-3 px-5 pb-4 text-text-2">
+                  <div className="w-8 h-8 rounded-full bg-green-bg text-green-text flex items-center justify-center shrink-0">
+                    <div className="w-4 h-4"><IconCheck /></div>
                   </div>
-                  <Link to="/memberships" className="text-[11px] text-text-3 no-underline cursor-pointer transition-colors">Ver membresías →</Link>
+                  <span className="text-[13px]">Sin membresías por vencer</span>
                 </div>
+              ) : (
                 <div className="flex flex-col">
-                  {expiring.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-8 sm:py-10 text-text-3">
-                      <div className="w-8 h-8 rounded-full bg-green-bg text-green-text flex items-center justify-center mb-2">
-                        <div className="w-4 h-4"><IconCheck /></div>
-                      </div>
-                      <div className="text-[12px]">Sin membresías por vencer</div>
-                    </div>
-                  ) : (
-                    expiring.slice(0, 5).map((e) => {
-                      const av = AV_COLORS[e.member_name.length % AV_COLORS.length];
-                      const initials = e.member_name.split(' ').map((w: string) => w[0]).slice(0, 2).join('').toUpperCase();
-                      const ev = e.days_remaining === 0 ? 'Hoy' : e.days_remaining === 1 ? '1 día' : `${e.days_remaining} días`;
-                      const isUrgent = e.days_remaining <= 1;
-                      return (
-                        <div key={e.id} className="row-hover flex items-center gap-2 sm:gap-3 px-3 sm:px-5 py-2.5 sm:py-3 border-b border-border">
-                          <div className="w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-semibold flex-shrink-0"
-                            style={{ background: av.bg, color: av.fg }}>
-                            {initials}
-                          </div>
-                          <div className="flex-1">
-                            <div className="text-[13px] font-medium">{e.member_name}</div>
-                            <div className="text-[11px] text-text-3 mt-0.5">{e.type_name} · vence {fmtDateShort(e.end_date)}</div>
-                          </div>
-                          <span className={`text-[10px] font-medium px-[9px] py-[3px] rounded-full whitespace-nowrap ${isUrgent ? 'bg-red-bg text-red-text' : 'bg-amber-bg text-amber-text'}`}>
-                            {ev}
+                  {expiring.slice(0, 5).map((e, i) => {
+                    const av = AV_COLORS[(e.member_name.length + i) % AV_COLORS.length];
+                    const days = e.days_remaining === 0 ? 'Hoy' : e.days_remaining === 1 ? '1 día' : `${e.days_remaining} días`;
+                    const urgent = e.days_remaining <= 1;
+                    return (
+                      <Link key={e.id} to="/memberships" className={ROW}>
+                        <span className="w-9 h-9 rounded-full flex items-center justify-center text-[11px] font-semibold shrink-0"
+                          style={{ background: av.bg, color: av.fg }}>
+                          {initialsOf(e.member_name)}
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block text-[14px] font-medium text-text truncate">{e.member_name}</span>
+                          <span className="block text-[11px] text-text-2 mt-0.5 truncate">
+                            {e.type_name} · vence {fmtDateShort(e.end_date)}
                           </span>
-                        </div>
-                      );
-                    })
-                  )}
+                        </span>
+                        <span className={`shrink-0 text-[11px] font-medium px-2.5 py-1 rounded-full whitespace-nowrap ${urgent ? 'bg-red-bg text-red-text' : 'bg-amber-bg text-amber-text'}`}>
+                          {days}
+                        </span>
+                      </Link>
+                    );
+                  })}
                 </div>
-              </div>
+              )}
 
-              <div className={`animate-slide-up ${staggerClass(6)} bg-surface  rounded-2xl overflow-hidden`}>
-                <div className="px-3 sm:px-5 py-3 sm:py-4 border-b border-border">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-7 h-7 rounded-2xl bg-purple-bg text-purple-text flex items-center justify-center">
-                      <div className="w-3.5 h-3.5"><IconActivity /></div>
-                    </div>
-                    <div>
-                      <div className="text-[13px] font-semibold">Actividad reciente</div>
-                      <div className="text-[11px] text-text-3 mt-0.5 hidden sm:block">Últimas acciones en el sistema</div>
-                    </div>
+              <Link to="/memberships" className="flex items-center justify-between px-5 py-3.5 border-t border-divider text-[13px] font-medium text-accent no-underline active:opacity-70">
+                Ver membresías
+                <span aria-hidden="true">›</span>
+              </Link>
+            </section>
+
+            {/* Actividad reciente */}
+            <section className="bg-surface rounded-[32px] overflow-hidden">
+              <SectionHeader
+                icon={<IconActivity />}
+                tone="bg-purple-bg text-purple-text"
+                title="Actividad reciente"
+                subtitle="Últimas acciones en el sistema"
+              />
+
+              {activities.length === 0 ? (
+                <div className="flex items-center gap-3 px-5 pb-4 text-text-2">
+                  <div className="w-8 h-8 rounded-full bg-gray-bg text-gray-text flex items-center justify-center shrink-0">
+                    <div className="w-4 h-4"><IconActivity /></div>
                   </div>
+                  <span className="text-[13px]">Sin actividad reciente</span>
                 </div>
+              ) : (
                 <div className="flex flex-col">
-                  {activities.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-8 sm:py-10 text-text-3">
-                      <div className="w-8 h-8 rounded-full bg-gray-bg text-gray-text flex items-center justify-center mb-2">
-                        <div className="w-4 h-4"><IconActivity /></div>
-                      </div>
-                      <div className="text-[12px]">Sin actividad reciente</div>
-                    </div>
-                  ) : (
-                    activities.map((a, i) => {
-                      const act = activityIcons[a.type] || { icon: <IconCheck />, cls: 'green' };
-                      return (
-                        <div key={a.id || i} className="row-hover flex items-start gap-2 sm:gap-3 px-3 sm:px-5 py-2.5 sm:py-3 border-b border-border">
-                          <div className={`w-[30px] h-[30px] rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${clsStyles[act.cls]}`}>
-                            <div className="w-[13px] h-[13px]">{act.icon}</div>
-                          </div>
-                          <div className="flex-1">
-                            <div className="text-[12px] text-text-2 leading-relaxed">
-                              <span className="font-semibold text-text-1">{a.userName}</span>
-                              {' '}{a.action}
-                            </div>
-                            <div className="text-[10px] text-text-3 mt-[3px]">{timeAgo(a.timestamp)}</div>
-                          </div>
+                  {activities.map((a, i) => {
+                    const act = activityIcons[a.type] || { icon: <IconCheck />, cls: 'green' };
+                    return (
+                      <div key={a.id || i} className="flex items-center gap-3 px-5 py-3 border-b border-divider last:border-b-0">
+                        <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${clsStyles[act.cls]}`}>
+                          <div className="w-4 h-4">{act.icon}</div>
                         </div>
-                      );
-                    })
-                  )}
+                        <div className="min-w-0 flex-1">
+                          <div className="text-[13px] text-text-2 leading-relaxed">
+                            <span className="font-semibold text-text">{a.userName}</span>{' '}{a.action}
+                          </div>
+                          <div className="text-[11px] text-text-3 mt-0.5">{timeAgo(a.timestamp)}</div>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
-              </div>
-
-            </div>
-
-          </>
+              )}
+            </section>
+          </div>
         )}
-      </div>
+      </PageContainer>
     </>
   );
 }

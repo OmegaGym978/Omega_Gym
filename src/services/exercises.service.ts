@@ -115,7 +115,7 @@ export const exercisesService = {
       .order('category')
 
     if (error) throw error
-    const unique = [...new Set((data || []).map((r: any) => r.category))]
+    const unique = [...new Set(((data ?? []) as { category: string | null }[]).map((r) => r.category).filter((c): c is string => Boolean(c)))]
     return unique
   },
 
@@ -127,7 +127,7 @@ export const exercisesService = {
       .order('equipment')
 
     if (error) throw error
-    const unique = [...new Set((data || []).map((r: any) => r.equipment))]
+    const unique = [...new Set(((data ?? []) as { equipment: string | null }[]).map((r) => r.equipment).filter((c): c is string => Boolean(c)))]
     return unique
   },
 
@@ -139,7 +139,7 @@ export const exercisesService = {
       .order('muscle_group')
 
     if (error) throw error
-    const unique = [...new Set((data || []).map((r: any) => r.muscle_group))]
+    const unique = [...new Set(((data ?? []) as { muscle_group: string | null }[]).map((r) => r.muscle_group).filter((c): c is string => Boolean(c)))]
     return unique
   },
 

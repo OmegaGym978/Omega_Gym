@@ -4,7 +4,7 @@ import { BrowserRouter } from 'react-router-dom'
 import { Toaster } from 'sonner'
 import '@/store/pwa.store'
 import '@/store/accent.store'
-import { useThemeStore } from '@/store/theme.store'
+import '@/store/theme.store'
 import App from './App'
 import './index.css'
 

@@ -9,11 +9,15 @@ interface TabBarProps {
   tabs: Tab[];
   active: string;
   onChange: (key: string) => void;
+  /** Por defecto la propia barra hace scroll horizontal. */
+  className?: string;
 }
 
-export function TabBar({ tabs, active, onChange }: TabBarProps) {
+export function TabBar({ tabs, active, onChange, className = 'overflow-x-auto' }: TabBarProps) {
   return (
-    <div className="flex gap-1.5 overflow-x-auto">
+    // `scrollbar-none` evita la barra de scroll horizontal nativa (la línea gris
+    // que aparecía bajo las píldoras de filtro).
+    <div className={`flex gap-1.5 scrollbar-none ${className}`}>
       {tabs.map((tab) => (
         <button
           key={tab.key}

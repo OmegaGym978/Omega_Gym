@@ -5,6 +5,7 @@ import { LoadingSpinner } from '@/components/ui/atoms/LoadingSpinner'
 import { MetricCard } from '@/components/ui/atoms/MetricCard'
 import { fmtDate } from '@/lib/helpers'
 import { ScreenHeader } from '@/components/ui/layout/ScreenHeader'
+import { PageContainer } from '@/components/ui/layout/PageContainer'
 
 const staggerClass = (i: number) => {
   const map = ['stagger-1', 'stagger-2', 'stagger-3', 'stagger-4', 'stagger-5']
@@ -19,11 +20,6 @@ function IconStreak() {
 }
 
 const METHOD_LABEL: Record<string, string> = { fingerprint: 'Huella', manual: 'Manual', card: 'Tarjeta' }
-const METHOD_ICON: Record<string, string> = {
-  fingerprint: 'M12 2C10.5 2 9 3.5 9 5c0 1.5 1.5 3 3 3s3-1.5 3-3c0-1.5-1.5-3-3-3zM8 12c0-1.5 1-3 2.5-3.5C12 8.5 12 8 12 8c1.5 0 2 1 2 2.5V12M8 18c1 1 2 2 4 2s3-1 4-2',
-  manual: 'M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2',
-  card: 'M3 10h18M7 15h1m4 0h1M7 19V5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2z',
-}
 
 export default function MyCheckinsPage() {
   const user = useAuthStore(s => s.user)
@@ -83,7 +79,7 @@ export default function MyCheckinsPage() {
 
   return (<>
       <ScreenHeader title="Mi asistencia" subtitle="Tus visitas al gym" />
-    <div className="px-4 sm:px-5 py-4 flex-1 mx-auto w-full max-w-[560px]">
+    <PageContainer className="flex-1">
 
 
       <div className={`grid grid-cols-2 gap-2.5 mb-4 animate-slide-up ${staggerClass(1)}`}>
@@ -91,8 +87,8 @@ export default function MyCheckinsPage() {
         <MetricCard icon={<IconStreak />} label="Racha actual" value={streak} color={streak > 0 ? 'green' : 'gray'} />
       </div>
 
-      <div className={`bg-surface  rounded-2xl overflow-hidden animate-slide-up ${staggerClass(2)}`}>
-        <div className="px-5 sm:px-6 py-4 border-b border-border">
+      <div className={`bg-surface  rounded-card overflow-hidden animate-slide-up ${staggerClass(2)}`}>
+        <div className="px-5 sm:px-6 py-4">
           <div className="text-[13px] font-semibold capitalize">{monthName} {year}</div>
         </div>
         <div className="p-4 sm:p-5">
@@ -144,8 +140,8 @@ export default function MyCheckinsPage() {
         </div>
       </div>
 
-      <div className={`bg-surface  rounded-2xl overflow-hidden mt-4 animate-slide-up ${staggerClass(3)}`}>
-        <div className="px-5 sm:px-6 py-4 border-b border-border">
+      <div className={`bg-surface  rounded-card overflow-hidden mt-4 animate-slide-up ${staggerClass(3)}`}>
+        <div className="px-5 sm:px-6 py-4">
           <div className="text-[13px] font-semibold">Historial reciente</div>
         </div>
         {checkins.length === 0 ? (
@@ -175,7 +171,7 @@ export default function MyCheckinsPage() {
           </div>
         )}
       </div>
-    </div>
+    </PageContainer>
     </>
   )
 }

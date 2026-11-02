@@ -11,7 +11,7 @@ export function PwaUpdateBanner() {
   return (
     <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[70] w-[calc(100vw-2rem)] max-w-[420px] animate-slide-up">
       <div
-        className="flex items-center justify-between gap-3 rounded-2xl border border-accent/30 px-4 py-3"
+        className="flex items-center justify-between gap-3 rounded-tile px-4 py-3.5"
         style={{ background: 'var(--surface)', boxShadow: '0 8px 30px rgba(0,0,0,0.35)' }}
       >
         <div className="flex items-center gap-3 min-w-0">

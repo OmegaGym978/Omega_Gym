@@ -8,6 +8,8 @@ import { ScreenHeader } from '@/components/ui/layout/ScreenHeader'
 import { BottomSheet } from '@/components/ui/molecules/BottomSheet'
 import { WorkoutSession } from '@/components/workout/WorkoutSession'
 import { todayLabel, weekdayIndex } from '@/lib/dates'
+import { PageContainer } from '@/components/ui/layout/PageContainer'
+import { FINGERPRINT_ENABLED } from '@/lib/features'
 
 type MemberPlan = TrainingPlan & {
   creator: { id: string; full_name: string } | null
@@ -153,7 +155,7 @@ export default function MyPlanPage() {
     <>
       <ScreenHeader title="Inicio" subtitle={todayLabel()} />
 
-      <div className="px-4 sm:px-5 py-4 flex-1 mx-auto w-full max-w-[560px]">
+      <PageContainer className="flex-1">
         {/* Saludo */}
         <div className="flex items-center justify-between gap-3 mb-4">
           <div className="min-w-0">
@@ -162,8 +164,8 @@ export default function MyPlanPage() {
               {hasPlans ? `${plans.length} rutina${plans.length !== 1 ? 's' : ''} disponible${plans.length !== 1 ? 's' : ''}` : 'Aún sin rutinas'}
             </div>
           </div>
-          <div className="shrink-0 flex flex-col items-center bg-surface rounded-2xl px-3.5 py-2">
-            <span className="text-[18px] font-bold leading-none" style={{ color: stats.streak > 0 ? 'var(--accent)' : 'var(--text-3)' }}>
+          <div className="shrink-0 flex flex-col items-center bg-surface rounded-tile px-4 py-2.5">
+            <span className="text-[20px] font-bold leading-none" style={{ color: stats.streak > 0 ? 'var(--accent)' : 'var(--text-3)' }}>
               {stats.streak}
             </span>
             <span className="text-[9px] text-text-3 uppercase tracking-[0.06em] mt-1">Racha</span>
@@ -172,11 +174,11 @@ export default function MyPlanPage() {
 
         {loading ? (
           <div className="flex flex-col gap-3">
-            <div className="h-44 rounded-3xl skeleton" />
-            <div className="h-24 rounded-2xl skeleton" />
+            <div className="h-44 rounded-card skeleton" />
+            <div className="h-24 rounded-card skeleton" />
           </div>
         ) : !hasPlans ? (
-          <div className="bg-surface rounded-3xl p-8 text-center flex flex-col items-center gap-3">
+          <div className="bg-surface rounded-card p-8 text-center flex flex-col items-center gap-3">
             <div className="w-14 h-14 rounded-full bg-accent-dim text-accent flex items-center justify-center">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
                 <path d="M6.5 6.5l11 11M4 9v6M20 9v6M7 7v10M17 7v10" />
@@ -193,7 +195,7 @@ export default function MyPlanPage() {
         ) : todayPlan ? (
           <>
             {/* Rutina de hoy */}
-            <section className="bg-surface rounded-3xl p-5 relative overflow-hidden">
+            <section className="bg-surface rounded-card p-6 relative overflow-hidden">
               <div className="absolute top-0 left-0 right-0 h-1 bg-accent opacity-80" />
               <div className="text-[10px] uppercase tracking-[0.12em] font-bold text-accent">Hoy toca</div>
               <h2 className="text-[24px] font-bold leading-tight mt-1.5">{todayPlan.name}</h2>
@@ -204,17 +206,17 @@ export default function MyPlanPage() {
               </div>
 
               <div className="grid grid-cols-3 gap-2 mt-4">
-                <div className="bg-surface2 rounded-2xl px-3 py-2.5">
+                <div className="bg-surface2 rounded-tile px-3 py-2.5">
                   <div className="text-[17px] font-bold leading-none">{exercisesLoading ? '—' : exercises.length}</div>
                   <div className="text-[9px] text-text-3 uppercase tracking-[0.06em] mt-1">Ejercicios</div>
                 </div>
-                <div className="bg-surface2 rounded-2xl px-3 py-2.5">
+                <div className="bg-surface2 rounded-tile px-3 py-2.5">
                   <div className="text-[17px] font-bold leading-none">
                     {exercisesLoading ? '—' : exercises.reduce((acc, ex) => acc + (ex.set_details?.length ?? ex.sets ?? 0), 0)}
                   </div>
                   <div className="text-[9px] text-text-3 uppercase tracking-[0.06em] mt-1">Series</div>
                 </div>
-                <div className="bg-surface2 rounded-2xl px-3 py-2.5">
+                <div className="bg-surface2 rounded-tile px-3 py-2.5">
                   <div className="text-[17px] font-bold leading-none">{fmtVolume(plannedVolume(exercises))}</div>
                   <div className="text-[9px] text-text-3 uppercase tracking-[0.06em] mt-1">Planeado</div>
                 </div>
@@ -241,7 +243,7 @@ export default function MyPlanPage() {
             {todayPlans.length > 1 && (
               <div className="mt-4">
                 <div className="text-[10px] uppercase tracking-[0.08em] text-text-3 font-bold mb-2">Otra rutina de hoy</div>
-                <div className="flex gap-2 overflow-x-auto">
+                <div className="flex gap-2 overflow-x-auto scrollbar-none">
                   {todayPlans.map((p, idx) => (
                     <button
                       key={p.id}
@@ -261,19 +263,19 @@ export default function MyPlanPage() {
         ) : (
           <>
             {/* Día de descanso */}
-            <section className="bg-surface rounded-3xl p-6 text-center flex flex-col items-center gap-2">
+            <section className="bg-surface rounded-card p-6 text-center flex flex-col items-center gap-3">
               <div className="w-14 h-14 rounded-full bg-surface2 text-text-2 flex items-center justify-center">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
                   <path d="M12 3a9 9 0 1 0 9 9" /><path d="M12 7v5l3 2" />
                 </svg>
               </div>
-              <div className="text-[16px] font-semibold">Hoy es día de descanso</div>
+              <div className="text-[17px] font-bold">Hoy es día de descanso</div>
               <div className="text-[12px] text-text-3 max-w-[300px] leading-relaxed">
                 No tienes una rutina programada para hoy. Descansa, hidrátate y recupera.
               </div>
               <Link
                 to="/my-routines"
-                className="mt-2 h-11 px-5 rounded-full bg-surface2 text-text text-[13px] font-semibold inline-flex items-center no-underline active:opacity-70"
+                className="mt-2 h-12 px-6 rounded-full bg-surface2 text-text text-[13px] font-semibold inline-flex items-center no-underline active:opacity-70"
               >
                 Explorar entrenamiento
               </Link>
@@ -283,22 +285,24 @@ export default function MyPlanPage() {
 
         {/* Estadísticas de la semana */}
         {!loading && hasPlans && (
-          <div className="grid grid-cols-3 gap-2 mt-4">
-            <div className="bg-surface rounded-2xl px-3 py-3">
-              <div className="text-[18px] font-bold leading-none">{stats.sessions}</div>
+          <div className={`grid gap-2 mt-4 ${FINGERPRINT_ENABLED ? 'grid-cols-3' : 'grid-cols-2'}`}>
+            <div className="bg-surface rounded-card px-3.5 py-4">
+              <div className="text-[20px] font-bold leading-none">{stats.sessions}</div>
               <div className="text-[9px] text-text-3 uppercase tracking-[0.06em] mt-1.5">Entrenos</div>
             </div>
-            <div className="bg-surface rounded-2xl px-3 py-3">
-              <div className="text-[18px] font-bold leading-none">{stats.visits}</div>
-              <div className="text-[9px] text-text-3 uppercase tracking-[0.06em] mt-1.5">Visitas</div>
-            </div>
-            <div className="bg-surface rounded-2xl px-3 py-3">
-              <div className="text-[18px] font-bold leading-none truncate">{volumeValue}</div>
+            {FINGERPRINT_ENABLED && (
+              <div className="bg-surface rounded-card px-3.5 py-4">
+                <div className="text-[20px] font-bold leading-none">{stats.visits}</div>
+                <div className="text-[9px] text-text-3 uppercase tracking-[0.06em] mt-1.5">Visitas</div>
+              </div>
+            )}
+            <div className="bg-surface rounded-card px-3.5 py-4">
+              <div className="text-[20px] font-bold leading-none truncate">{volumeValue}</div>
               <div className="text-[9px] text-text-3 uppercase tracking-[0.06em] mt-1.5 leading-tight">{volumeLabel}</div>
             </div>
           </div>
         )}
-      </div>
+      </PageContainer>
 
       {/* Detalle de la rutina de hoy */}
       <BottomSheet
@@ -309,7 +313,7 @@ export default function MyPlanPage() {
       >
         <div className="flex flex-col gap-2">
           {exercises.map((ex, index) => (
-            <div key={ex.id} className="bg-surface rounded-2xl px-4 py-3 flex items-center gap-3">
+            <div key={ex.id} className="bg-surface rounded-tile px-4 py-3 flex items-center gap-3">
               <span className="w-7 h-7 rounded-full bg-accent-dim text-accent text-[11px] font-bold flex items-center justify-center shrink-0">
                 {index + 1}
               </span>
@@ -325,6 +329,7 @@ export default function MyPlanPage() {
 
       {/* Sesión */}
       <WorkoutSession
+        key={`${session ? 'o' : 'c'}-${session?.planId ?? ''}-${session?.exercises.length ?? 0}`}
         open={session !== null}
         onClose={() => setSession(null)}
         planName={session?.name ?? ''}

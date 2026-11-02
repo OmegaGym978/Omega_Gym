@@ -70,9 +70,9 @@ export function ScreenHeader({
   ) : null
 
   return (
-    <header className={`sticky top-0 z-30 border-b border-border/70 bg-bg/90 backdrop-blur-xl safe-top ${className}`}>
+    <header className={`sticky top-0 z-30 bg-bg/85 backdrop-blur-xl safe-top ${className}`}>
       <div
-        className={`mx-auto flex h-14 w-full items-center gap-2 px-3 sm:px-4 ${wide ? 'max-w-[1100px]' : 'max-w-[560px]'}`}
+        className={`mx-auto flex h-14 w-full items-center gap-2 px-3 sm:px-4 ${wide ? 'max-w-[560px] lg:max-w-[720px]' : 'max-w-[560px] lg:max-w-[720px]'}`}
       >
         {centerTitle ? (
           <div className="relative flex w-full items-center">
