@@ -97,7 +97,7 @@ export default function App() {
             <Route path="/my-plan" element={<MyPlanPage />} />
             <Route path="/my-routines" element={<MyRoutinesPage />} />
             <Route path="/my-membership" element={<MyMembershipPage />} />
-            <Route path="/my-payments" element={<Navigate to="/my-membership?tab=pagos" replace />} />
+            <Route path="/my-payments" element={<Navigate to="/my-membership#pagos" replace />} />
             <Route path="/my-checkins" element={unreleasedElement(MyCheckinsPage, '/my-profile')} />
             <Route path="/my-profile" element={<MyProfilePage />} />
             <Route path="/my-profile/exercises" element={<MyExercisesPage />} />
