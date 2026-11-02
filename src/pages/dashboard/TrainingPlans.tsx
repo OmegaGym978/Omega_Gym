@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { trainingService, type PlanListItem, type PlanExercise } from '@/services/training.service';
 import { membersService, type MemberListItem } from '@/services/members.service';
-import { membershipsService, type Membership, type MembershipType } from '@/services/memberships.service';
+import { membershipsService, NO_ACTIVE_MEMBERSHIP_MESSAGE, type Membership, type MembershipType } from '@/services/memberships.service';
 import { exercisesService, type Exercise } from '@/services/exercises.service';
 import { Button } from '@/components/ui/atoms/Button';
 import { Badge } from '@/components/ui/atoms/Badge';
@@ -15,7 +15,7 @@ import { formatSchedule } from '@/lib/dates';
 import { Modal } from '@/components/ui/molecules/Modal';
 import { IconAlert } from '@/lib/icons';
 import { toast } from 'sonner';
-import { initials, fmtDate } from '@/lib/helpers';
+import { initials, fmtDate, getErrorMessage } from '@/lib/helpers';
 
 interface PlanMember {
   id: string;
@@ -45,6 +45,39 @@ function initialsOf(name: string) {
   return name.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
 }
 
+/**
+ * Datos del listado sin tocar estado: así los effects pueden encadenar la
+ * promesa y actualizar el estado en el callback (regla set-state-in-effect).
+ */
+async function loadPlansData(): Promise<Plan[]> {
+  const result = await trainingService.getAll({ pageSize: 100 });
+  return result.data.map((p: PlanListItem) => ({
+    id: p.id,
+    name: p.name,
+    desc: p.description ?? '',
+    type: p.type,
+    trainer: p.trainer_name,
+    members: (p.member_ids || []).map((memberId: string, i: number) => {
+      const n = p.member_names[i] ?? '—';
+      return { id: memberId, name: n, initials: initialsOf(n) };
+    }),
+    exerciseCount: p.exercise_count,
+    exercises: [],
+    scheduled_days: p.scheduled_days ?? null,
+  }));
+}
+
+/** Detalle del plan + catálogo de ejercicios, sin tocar estado. */
+async function loadPlanDetailData(planId: string) {
+  const data = await trainingService.getById(planId);
+  const allExercises: PlanExercise[] = data.exercises || [];
+  const catalogIds = [...new Set(allExercises.filter(e => !!e.exercise_id).map(e => e.exercise_id as string))];
+  const catalog = catalogIds.length > 0
+    ? await exercisesService.getByIds(catalogIds).catch(() => [] as Exercise[])
+    : [];
+  return { data, catalog };
+}
+
 export default function TrainingPlansPage() {
   const [plans, setPlans] = useState<Plan[]>([]);
   const [loading, setLoading] = useState(true);
@@ -52,7 +85,7 @@ export default function TrainingPlansPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [filter, setFilter] = useState('all');
   const [search, setSearch] = useState('');
-  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailLoadedFor, setDetailLoadedFor] = useState<string | null>(null);
   const [builderOpen, setBuilderOpen] = useState(false);
   const [builderEditPlan, setBuilderEditPlan] = useState<EditPlanData | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Plan | null>(null);
@@ -60,6 +93,7 @@ export default function TrainingPlansPage() {
   const [assigneeOpen, setAssigneeOpen] = useState(true);
   const [assignModalOpen, setAssignModalOpen] = useState(false);
   const [membersList, setMembersList] = useState<MemberListItem[]>([]);
+  const [hiddenNoMembership, setHiddenNoMembership] = useState(0);
   const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
   const [assigning, setAssigning] = useState(false);
   const [previewMember, setPreviewMember] = useState<MemberListItem | null>(null);
@@ -73,73 +107,76 @@ export default function TrainingPlansPage() {
   const navigate = useNavigate();
 
   const fetchPlans = useCallback(async () => {
-    setLoading(true);
-    setError(null);
     try {
-      const result = await trainingService.getAll({ pageSize: 100 });
-      const mapped: Plan[] = result.data.map((p: PlanListItem) => ({
-        id: p.id,
-        name: p.name,
-        desc: p.description ?? '',
-        type: p.type,
-        trainer: p.trainer_name,
-        members: (p.member_ids || []).map((memberId: string, i: number) => {
-          const n = p.member_names[i] ?? '—';
-          return { id: memberId, name: n, initials: initialsOf(n) };
-        }),
-        exerciseCount: p.exercise_count,
-        exercises: [],
-        scheduled_days: p.scheduled_days ?? null,
-      }));
-      setPlans(mapped);
-    } catch (e: any) {
-      setError(e.message);
+      setPlans(await loadPlansData());
+      setError(null);
+    } catch (e) {
+      setError(getErrorMessage(e));
     } finally {
       setLoading(false);
     }
   }, []);
 
-  useEffect(() => { fetchPlans(); }, [fetchPlans]);
+  useEffect(() => {
+    let cancelled = false;
+    loadPlansData()
+      .then((mapped) => {
+        if (cancelled) return;
+        setPlans(mapped);
+        setError(null);
+      })
+      .catch((e) => { if (!cancelled) setError(getErrorMessage(e)); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, []);
 
   const selectedPlan = plans.find(p => p.id === selectedId) || null;
+  // Derivado: hay carga de detalle mientras el plan pedido no sea el cargado.
+  const detailLoading = !!selectedId && detailLoadedFor !== selectedId;
 
-  const loadDetail = useCallback(async (planId: string) => {
-    setDetailLoading(true);
-    try {
-      const data = await trainingService.getById(planId);
-      setPlans(prev => prev.map(p => {
-        if (p.id !== planId) return p;
-        return {
-          ...p,
-          exercises: data.exercises ?? [],
-          members: (data.assignees || []).map((a: any) => ({
-            id: a.id,
-            name: a.full_name,
-            initials: initialsOf(a.full_name),
-          })),
-        };
-      }));
-
-      const allExercises: PlanExercise[] = data.exercises || [];
-      const catalogIds = [...new Set(allExercises.filter(e => !!e.exercise_id).map(e => e.exercise_id as string))];
-      if (catalogIds.length > 0) {
-        try {
-          const catalogExs = await exercisesService.getByIds(catalogIds);
-          const newMap = new Map<string, Exercise>();
-          catalogExs.forEach(ce => newMap.set(ce.id, ce));
-          setCatalogMap(newMap);
-        } catch {
-          // El catálogo es opcional para el detalle
-        }
-      }
-    } catch {
-      // se mantiene la lista previa
-    } finally {
-      setDetailLoading(false);
+  const applyPlanDetail = useCallback((planId: string, data: Awaited<ReturnType<typeof loadPlanDetailData>>['data'], catalog: Exercise[]) => {
+    setPlans(prev => prev.map(p => {
+      if (p.id !== planId) return p;
+      return {
+        ...p,
+        exercises: data.exercises ?? [],
+        members: (data.assignees || []).map((a) => ({
+          id: a.id,
+          name: a.full_name,
+          initials: initialsOf(a.full_name),
+        })),
+      };
+    }));
+    if (catalog.length > 0) {
+      const newMap = new Map<string, Exercise>();
+      catalog.forEach(ce => newMap.set(ce.id, ce));
+      setCatalogMap(newMap);
     }
   }, []);
 
-  useEffect(() => { if (selectedId) loadDetail(selectedId); }, [selectedId, loadDetail]);
+  const loadDetail = useCallback(async (planId: string) => {
+    try {
+      const { data, catalog } = await loadPlanDetailData(planId);
+      applyPlanDetail(planId, data, catalog);
+    } catch {
+      // se mantiene la lista previa
+    } finally {
+      setDetailLoadedFor(planId);
+    }
+  }, [applyPlanDetail]);
+
+  useEffect(() => {
+    if (!selectedId) return;
+    let cancelled = false;
+    loadPlanDetailData(selectedId)
+      .then(({ data, catalog }) => {
+        if (cancelled) return;
+        applyPlanDetail(selectedId, data, catalog);
+      })
+      .catch(() => { /* se mantiene la lista previa */ })
+      .finally(() => { if (!cancelled) setDetailLoadedFor(selectedId); });
+    return () => { cancelled = true; };
+  }, [selectedId, applyPlanDetail]);
 
   const filteredPlans = plans
     .filter(p => {
@@ -163,7 +200,7 @@ export default function TrainingPlansPage() {
       setSelectedId(null);
       fetchPlans();
       toast.success('Plan eliminado');
-    } catch (e: any) { toast.error(e.message); }
+    } catch (e) { toast.error(getErrorMessage(e)); }
   }
 
   async function handleDuplicate(planId: string) {
@@ -172,7 +209,7 @@ export default function TrainingPlansPage() {
       await fetchPlans();
       setSelectedId(newId);
       toast.success('Plan duplicado');
-    } catch (e: any) { toast.error(e.message); }
+    } catch (e) { toast.error(getErrorMessage(e)); }
   }
 
   async function handleRemoveMember(planId: string, memberId: string) {
@@ -185,7 +222,7 @@ export default function TrainingPlansPage() {
       await fetchPlans();
       if (selectedId === planId) loadDetail(planId);
       toast.success('Miembro removido del plan');
-    } catch (e: any) { toast.error(e.message); }
+    } catch (e) { toast.error(getErrorMessage(e)); }
   }
 
   async function confirmRemoveMember() {
@@ -218,10 +255,17 @@ export default function TrainingPlansPage() {
         trainingService.getAssignees(selectedPlan.id),
       ]);
       const assignedIds = new Set(assignees.map(a => a.id));
-      setMembersList(result.data.filter(m => !assignedIds.has(m.id)));
+      // Solo miembros activos que todavía no tienen el plan.
+      const candidates = result.data.filter(m => !assignedIds.has(m.id) && m.is_active);
+      // Y de esos, solo los que tienen membresía vigente hoy.
+      const activeMemberIds = await membershipsService.getActiveMemberIds(candidates.map(m => m.id));
+      const eligible = candidates.filter(m => activeMemberIds.has(m.id));
+
+      setMembersList(eligible);
+      setHiddenNoMembership(candidates.length - eligible.length);
       setSelectedMemberIds([]);
       setAssignModalOpen(true);
-    } catch (e: any) { toast.error('Error al cargar miembros: ' + e.message); }
+    } catch (e) { toast.error('Error al cargar miembros: ' + getErrorMessage(e)); }
   }
 
   function toggleMemberSelection(memberId: string) {
@@ -234,12 +278,24 @@ export default function TrainingPlansPage() {
     if (!selectedPlan || selectedMemberIds.length === 0) return;
     setAssigning(true);
     try {
+      // Revalidación al guardar: la membresía pudo vencer con el modal abierto.
+      const activeMemberIds = await membershipsService.getActiveMemberIds(selectedMemberIds);
+      const blockedIds = selectedMemberIds.filter(id => !activeMemberIds.has(id));
+
+      if (blockedIds.length > 0) {
+        toast.error(NO_ACTIVE_MEMBERSHIP_MESSAGE);
+        setSelectedMemberIds(prev => prev.filter(id => activeMemberIds.has(id)));
+        setMembersList(prev => prev.filter(m => activeMemberIds.has(m.id)));
+        setHiddenNoMembership(prev => prev + blockedIds.length);
+        return;
+      }
+
       await trainingService.assignMultiple(selectedPlan.id, selectedMemberIds);
       setAssignModalOpen(false);
       await fetchPlans();
       loadDetail(selectedPlan.id);
       toast.success(`Plan asignado a ${selectedMemberIds.length} miembro${selectedMemberIds.length !== 1 ? 's' : ''}`);
-    } catch (e: any) { toast.error(e.message); } finally { setAssigning(false); }
+    } catch (e) { toast.error(getErrorMessage(e)); } finally { setAssigning(false); }
   }
 
   function openNewPlan() { setBuilderEditPlan(null); setBuilderOpen(true); }
@@ -249,7 +305,7 @@ export default function TrainingPlansPage() {
       const data = await trainingService.getById(planId);
       setBuilderEditPlan({ id: data.id, name: data.name, description: data.description, exercises: data.exercises });
       setBuilderOpen(true);
-    } catch (e: any) { toast.error('Error al cargar plan: ' + e.message); }
+    } catch (e) { toast.error('Error al cargar plan: ' + getErrorMessage(e)); }
   }
 
   async function onBuilderSave(planId?: string) {
@@ -268,8 +324,8 @@ export default function TrainingPlansPage() {
       )));
       toast.success(days.length > 0 ? 'Días actualizados' : 'Plan sin días programados');
       setScheduleOpen(false);
-    } catch (e: any) {
-      toast.error('No se pudo programar: ' + e.message);
+    } catch (e) {
+      toast.error('No se pudo programar: ' + getErrorMessage(e));
     } finally {
       setScheduleSaving(false);
     }
@@ -295,8 +351,8 @@ export default function TrainingPlansPage() {
         }
       />
 
-      <div className="px-4 sm:px-6 py-4 flex-1 mx-auto w-full max-w-[1100px]">
-        <div className="grid grid-cols-2 gap-3 mb-4">
+      <div className="px-4 sm:px-6 py-4 flex-1 mx-auto w-full max-w-[720px]">
+        <div className="grid grid-cols-2 gap-4 mb-4">
           <MetricCard
             icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-full h-full"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20" /></svg>}
             color="accent"
@@ -324,7 +380,7 @@ export default function TrainingPlansPage() {
           />
         </div>
 
-        <div className="flex gap-2 mb-4 overflow-x-auto">
+        <div className="flex gap-2 mb-4 overflow-x-auto scrollbar-none">
           {FILTER_TABS.map(t => (
             <button
               key={t.key}
@@ -342,55 +398,63 @@ export default function TrainingPlansPage() {
 
         {loading ? (
           <div className="flex flex-col gap-2">
-            {[0, 1, 2].map(i => <div key={i} className="h-[96px] rounded-2xl skeleton" />)}
+            {[0, 1, 2].map(i => <div key={i} className="h-[96px] rounded-card skeleton" />)}
           </div>
         ) : error ? (
-          <div className="bg-surface  rounded-2xl p-6 text-center">
+          <div className="bg-surface  rounded-card p-6 text-center">
             <div className="text-sm text-red-text">Error: {error}</div>
             <button onClick={fetchPlans} className="mt-3 px-4 py-2 rounded-full bg-accent text-accent-contrast text-xs font-bold border-none cursor-pointer">
               Reintentar
             </button>
           </div>
         ) : filteredPlans.length === 0 ? (
-          <div className="bg-surface  rounded-2xl p-10 text-center text-sm text-text-3">
+          <div className="bg-surface  rounded-card p-10 text-center text-sm text-text-3">
             Sin resultados
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-            {filteredPlans.map(p => (
-              <button
-                key={p.id}
-                type="button"
-                onClick={() => { setSelectedId(p.id); setAssigneeOpen(true); }}
-                className="text-left bg-surface  rounded-2xl p-4 cursor-pointer border-accent/30 transition-colors"
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <div className="text-[15px] font-bold truncate">{p.name}</div>
-                    <div className="text-[11px] text-text-3 truncate mt-0.5">
-                      {p.type === 'assigned' ? `${p.members.length} miembro${p.members.length !== 1 ? 's' : ''}` : `Por ${p.trainer}`}
-                    </div>
-                  </div>
-                  <Badge variant={p.type === 'assigned' ? 'green' : 'gray'}>
-                    {p.type === 'assigned' ? 'Asignado' : 'Sin asignar'}
-                  </Badge>
-                </div>
+          <div className="bg-surface rounded-[32px] overflow-hidden">
+            {filteredPlans.map(p => {
+              const subtitle = p.type === 'assigned'
+                ? `${p.members.length} miembro${p.members.length !== 1 ? 's' : ''} · ${p.exerciseCount} ejercicios`
+                : `Por ${p.trainer} · ${p.exerciseCount} ejercicios`;
+              return (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => { setSelectedId(p.id); setAssigneeOpen(true); }}
+                  className="w-full flex items-center gap-3 px-5 py-4 text-left bg-transparent border-none border-b border-divider last:border-b-0 cursor-pointer active:opacity-70 transition-opacity"
+                >
+                  <span className="w-9 h-9 rounded-full bg-accent-dim text-accent flex items-center justify-center shrink-0">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M9 11l3 3L22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+                    </svg>
+                  </span>
 
-                <div className="flex items-center gap-2 mt-3">
-                  <div className="flex -space-x-2">
-                    {p.members.slice(0, 3).map(m => (
-                      <span key={m.id} className="w-6 h-6 rounded-full bg-surface3 border border-surface text-text-2 text-[9px] font-bold flex items-center justify-center">
-                        {m.initials}
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[14px] font-semibold text-text truncate">{p.name}</span>
+                    <span className="block text-[12px] text-text-2 truncate mt-0.5">{subtitle}</span>
+                    {p.scheduled_days && p.scheduled_days.length > 0 && (
+                      <span className="block text-[11px] font-semibold text-accent mt-1">{formatSchedule(p.scheduled_days)}</span>
+                    )}
+                  </span>
+
+                  <span className="shrink-0 flex flex-col items-end gap-1.5">
+                    <Badge variant={p.type === 'assigned' ? 'green' : 'gray'}>
+                      {p.type === 'assigned' ? 'Asignado' : 'Sin asignar'}
+                    </Badge>
+                    {p.members.length > 0 && (
+                      <span className="flex -space-x-2">
+                        {p.members.slice(0, 3).map(m => (
+                          <span key={m.id} className="w-6 h-6 rounded-full bg-surface3 border border-surface text-text-2 text-[9px] font-bold flex items-center justify-center">
+                            {m.initials}
+                          </span>
+                        ))}
                       </span>
-                    ))}
-                  </div>
-                  <span className="text-[11px] text-text-3 ml-auto">{p.exerciseCount} ejercicios</span>
-                </div>
-                {p.scheduled_days && p.scheduled_days.length > 0 && (
-                  <div className="mt-1.5 text-[11px] font-semibold text-accent">{formatSchedule(p.scheduled_days)}</div>
-                )}
-              </button>
-            ))}
+                    )}
+                  </span>
+                </button>
+              );
+            })}
           </div>
         )}
       </div>
@@ -439,8 +503,8 @@ export default function TrainingPlansPage() {
             }
           />
 
-          <div className="flex-1 overflow-y-auto pb-28">
-            <div className="px-4 sm:px-6 py-4 mx-auto w-full max-w-[1100px] flex flex-col gap-3">
+          <div className="flex-1 overflow-y-auto scrollbar-none pb-28">
+            <div className="px-4 sm:px-6 py-4 mx-auto w-full max-w-[720px] flex flex-col gap-3">
               <div className="flex items-center gap-2 flex-wrap">
                 <Badge variant={selectedPlan.type === 'assigned' ? 'green' : 'gray'}>
                   {selectedPlan.type === 'assigned' ? 'Asignado' : 'Sin asignar'}
@@ -453,7 +517,7 @@ export default function TrainingPlansPage() {
               </div>
 
               {/* Asignados */}
-              <div className="bg-surface  rounded-2xl overflow-hidden">
+              <div className="bg-surface  rounded-card overflow-hidden">
                 <button
                   onClick={() => setAssigneeOpen(v => !v)}
                   className="w-full flex items-center justify-between gap-3 px-4 py-3.5 bg-transparent border-none cursor-pointer text-left"
@@ -514,7 +578,7 @@ export default function TrainingPlansPage() {
               </div>
 
               {selectedPlan.exercises.length === 0 && !detailLoading ? (
-                <div className="bg-surface  rounded-2xl p-8 text-center">
+                <div className="bg-surface  rounded-card p-8 text-center">
                   <div className="text-sm font-semibold">Sin ejercicios</div>
                   <div className="text-[12px] text-text-3 mt-1">Edita el plan para agregar ejercicios.</div>
                 </div>
@@ -524,7 +588,7 @@ export default function TrainingPlansPage() {
                     key={e.id}
                     type="button"
                     onClick={() => setSelectedExId(e.id)}
-                    className="w-full flex items-center gap-3 bg-surface  rounded-2xl p-3 text-left cursor-pointer border-accent/30 transition-colors"
+                    className="w-full flex items-center gap-3 bg-surface  rounded-card p-3 text-left cursor-pointer border-accent/30 transition-colors"
                   >
                     <span className="w-8 h-8 rounded-full bg-accent-dim text-accent text-[11px] font-bold flex items-center justify-center shrink-0">
                       {i + 1}
@@ -545,10 +609,12 @@ export default function TrainingPlansPage() {
       {/* Asignar plan */}
       <Modal open={assignModalOpen} onClose={() => setAssignModalOpen(false)} title="Asignar plan" compact>
         <div className="flex flex-col gap-3">
-          <p className="text-[12px] text-text-3">Selecciona los miembros para asignar este plan:</p>
-          <div className="flex flex-col max-h-[260px] overflow-y-auto -mx-2 px-2">
+          <p className="text-[12px] text-text-3">
+            Selecciona los miembros para asignar este plan. Solo se muestran miembros activos con membresía vigente.
+          </p>
+          <div className="flex flex-col max-h-[260px] overflow-y-auto scrollbar-none -mx-2 px-2">
             {membersList.length === 0 ? (
-              <div className="text-[12px] text-text-3 py-3">No hay miembros disponibles</div>
+              <div className="text-[12px] text-text-3 py-3">No hay miembros con membresía activa disponibles</div>
             ) : membersList.map(m => {
               const isSelected = selectedMemberIds.includes(m.id);
               return (
@@ -569,6 +635,12 @@ export default function TrainingPlansPage() {
               );
             })}
           </div>
+          {hiddenNoMembership > 0 && (
+            <p className="text-[11px] leading-relaxed text-text-3">
+              {hiddenNoMembership} miembro{hiddenNoMembership !== 1 ? 's' : ''} no aparece
+              {hiddenNoMembership !== 1 ? 'n' : ''} en la lista por no contar con una membresía activa.
+            </p>
+          )}
           <div className="flex justify-end gap-2 pt-1">
             <Button variant="ghost" size="sm" onClick={() => setAssignModalOpen(false)}>Cancelar</Button>
             <Button variant="primary" size="sm" onClick={handleAssignMultiple} disabled={selectedMemberIds.length === 0 || assigning}>
@@ -630,7 +702,7 @@ export default function TrainingPlansPage() {
           <div className="text-[13px] leading-relaxed">
             ¿Estás seguro de eliminar el plan <strong>{deleteTarget?.name}</strong>?
           </div>
-          <div className="text-[12px] text-text-3 bg-red-bg border border-red/20 rounded-2xl p-3 leading-relaxed">
+          <div className="text-[12px] text-red-text bg-red-bg rounded-tile p-3.5 leading-relaxed">
             Se eliminarán todos los ejercicios asociados. Esta acción no se puede deshacer.
           </div>
         </div>
@@ -645,7 +717,7 @@ export default function TrainingPlansPage() {
           <div className="text-[13px] leading-relaxed">
             ¿Seguro que quieres quitar a <strong>{removeTarget?.memberName}</strong> del plan?
           </div>
-          <div className="text-[12px] text-text-3 bg-red-bg border border-red/20 rounded-2xl p-3 leading-relaxed">
+          <div className="text-[12px] text-red-text bg-red-bg rounded-tile p-3.5 leading-relaxed">
             Solo se elimina la asignación del miembro a este plan. El miembro y su información no se borran.
           </div>
         </div>
@@ -655,9 +727,10 @@ export default function TrainingPlansPage() {
         </div>
       </Modal>
 
-      <RoutineBuilder open={builderOpen} onClose={() => setBuilderOpen(false)} onSave={onBuilderSave} editPlan={builderEditPlan} />
+      <RoutineBuilder key={`${builderOpen ? 'o' : 'c'}-${builderEditPlan?.id ?? 'new'}`} open={builderOpen} onClose={() => setBuilderOpen(false)} onSave={onBuilderSave} editPlan={builderEditPlan} />
 
       <ScheduleSheet
+        key={`${scheduleOpen && selectedPlan ? 'o' : 'c'}-${selectedPlan?.id ?? ''}`}
         open={scheduleOpen && !!selectedPlan}
         onClose={() => setScheduleOpen(false)}
         planName={selectedPlan?.name}
@@ -680,7 +753,7 @@ export default function TrainingPlansPage() {
         {selectedExercise && (
           <>
             {(selectedCatalog?.gif_url || selectedCatalog?.image_url) && (
-              <div className="rounded-2xl overflow-hidden bg-surface2 border border-border -mx-1">
+              <div className="rounded-tile overflow-hidden bg-surface2 -mx-1">
                 <img
                   src={selectedCatalog.gif_url || selectedCatalog.image_url!}
                   alt={selectedExercise.exercise_name}
@@ -722,7 +795,7 @@ export default function TrainingPlansPage() {
             )}
 
             {selectedExercise.notes && selectedExercise.notes !== selectedCatalog?.instructions_es && (
-              <div className="bg-surface2 border border-border rounded-2xl p-3">
+              <div className="bg-surface2 rounded-tile p-4">
                 <div className="text-[11px] font-bold text-text-3 uppercase tracking-[0.05em] mb-1">Notas del entrenador</div>
                 <div className="text-[13px] text-text-2">{selectedExercise.notes}</div>
               </div>

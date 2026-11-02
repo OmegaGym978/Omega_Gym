@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { BottomSheet } from '@/components/ui/molecules/BottomSheet'
 import { DAY_LABELS } from '@/lib/dates'
 
@@ -11,14 +11,13 @@ interface Props {
   onSave: (days: number[]) => void
 }
 
-/** Selector de días de la semana (0 = lunes … 6 = domingo). */
+/**
+ * Selector de días de la semana (0 = lunes … 6 = domingo).
+ * El estado se siembra al montar: los padres lo remontan con `key` en cada
+ * apertura, así no hace falta reiniciarlo desde un effect.
+ */
 export function ScheduleSheet({ open, onClose, planName, initialDays, saving, onSave }: Props) {
-  const [selected, setSelected] = useState<number[]>([])
-
-  useEffect(() => {
-    if (!open) return
-    setSelected(initialDays ? [...initialDays] : [])
-  }, [open, initialDays])
+  const [selected, setSelected] = useState<number[]>(() => initialDays ?? [])
 
   function toggle(day: number) {
     setSelected(prev => (prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day]))

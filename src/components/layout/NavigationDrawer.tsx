@@ -62,7 +62,7 @@ export function NavigationDrawer({ sections, icons, roleLabel, onSettings, pendi
         <div className="px-4 py-4 border-b border-border">
           <button
             onClick={() => { close(); onSettings() }}
-            className="w-full flex items-center gap-3 bg-surface2 border border-border rounded-2xl p-3 cursor-pointer text-left border-accent/30 transition-colors"
+            className="w-full flex items-center gap-3 bg-surface2 rounded-tile p-3.5 cursor-pointer text-left transition-colors"
           >
             <div className="w-10 h-10 rounded-full bg-accent-dim text-accent flex items-center justify-center text-[13px] font-bold shrink-0">
               {initials}
@@ -78,7 +78,7 @@ export function NavigationDrawer({ sections, icons, roleLabel, onSettings, pendi
           </button>
         </div>
 
-        <nav className="flex-1 overflow-y-auto px-3 py-4">
+        <nav className="flex-1 overflow-y-auto scrollbar-none px-3 py-4">
           {sections.map(section => (
             <div key={section.section} className="mb-5">
               <div className="text-[10px] text-text-3 tracking-[0.1em] uppercase px-2 mb-1.5 font-semibold">{section.section}</div>

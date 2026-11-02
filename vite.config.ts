@@ -7,14 +7,25 @@ import { fileURLToPath } from 'url'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
-export default defineConfig({
+/**
+ * Pantallas de funciones no liberadas (huella/check-in). En `vite build` se
+ * sustituyen por un stub para que su código no entre al bundle de producción.
+ * El gate de rutas está en `src/lib/features.ts`.
+ */
+const UNRELEASED_PAGES = [
+  '@/pages/dashboard/Fingerprint',
+  '@/pages/kiosk/CheckIn',
+  '@/pages/member/MyCheckins',
+]
+
+export default defineConfig(({ command }) => ({
   plugins: [
     react(),
     tailwindcss(),
     VitePWA({
       registerType: 'prompt',
       injectRegister: false,
-      includeAssets: ['icons/*.svg'],
+      includeAssets: ['icons/*.svg', 'brand/omega-logo.png'],
       manifest: {
         name: 'Omega Gym',
         short_name: 'Omega Gym',
@@ -44,6 +55,15 @@ export default defineConfig({
     }),
   ],
   resolve: {
-    alias: { '@': path.resolve(__dirname, 'src') },
+    alias: [
+      // Solo en `vite build`: el servidor de desarrollo conserva las pantallas reales.
+      ...(command === 'serve'
+        ? []
+        : UNRELEASED_PAGES.map((find) => ({
+            find,
+            replacement: path.resolve(__dirname, 'src/lib/unreleased-stub.tsx'),
+          }))),
+      { find: '@', replacement: path.resolve(__dirname, 'src') },
+    ],
   },
-})
+}))

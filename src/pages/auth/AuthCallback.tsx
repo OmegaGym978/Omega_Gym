@@ -80,7 +80,7 @@ export default function AuthCallbackPage() {
     <div className="min-h-dvh flex items-center justify-center bg-bg">
       <div className="flex flex-col items-center gap-4">
         <div className="w-10 h-10 rounded-full border-2 border-accent border-t-transparent animate-spin" />
-        <div className="text-[13px] text-text-3">Completando inicio de sesión…</div>
+        <div className="text-[13px] text-text-2">Completando inicio de sesión…</div>
       </div>
     </div>
   )

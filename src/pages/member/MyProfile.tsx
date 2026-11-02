@@ -1,20 +1,19 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import { useAuthStore } from '@/store/auth.store'
-import { avatarColor, initials } from '@/lib/helpers'
+import { avatarColor, initials, getErrorMessage } from '@/lib/helpers'
 import { Badge } from '@/components/ui/atoms/Badge'
 import { LoadingSpinner } from '@/components/ui/atoms/LoadingSpinner'
 import { Modal } from '@/components/ui/molecules/Modal'
-import { ActivityChart } from '@/components/profile/ActivityChart'
 import { SettingsModal } from '@/pages/settings/SettingsModal'
-import { membershipsService } from '@/services/memberships.service'
-import { checkInsService } from '@/services/checkIns.service'
+import { AdminSettingsPanel } from '@/pages/admin/AdminSettingsPanel'
+import { membershipsService, type ActiveMembership } from '@/services/memberships.service'
+import { PageContainer } from '@/components/ui/layout/PageContainer'
 
 const SHOW_DELETE_ACCOUNT = false
 
 const METRICS = [
-  { key: 'visits', label: 'Visitas' },
   { key: 'duration', label: 'Duración' },
   { key: 'volume', label: 'Volumen' },
   { key: 'reps', label: 'Repeticiones' },
@@ -31,12 +30,12 @@ const ROLE_LABEL: Record<string, string> = {
 export default function MyProfilePage() {
   const user = useAuthStore(s => s.user)
   const navigate = useNavigate()
+  // El administrador no tiene progreso de entrenamiento propio en esta vista.
+  const isAdmin = user?.role === 'admin'
 
   const [loading, setLoading] = useState(true)
-  const [membership, setMembership] = useState<any>(null)
-  const [checkinCount, setCheckinCount] = useState(0)
-  const [visitTimes, setVisitTimes] = useState<string[]>([])
-  const [activeMetric, setActiveMetric] = useState<MetricKey>('visits')
+  const [membership, setMembership] = useState<ActiveMembership | null>(null)
+  const [activeMetric, setActiveMetric] = useState<MetricKey>('duration')
 
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
@@ -52,47 +51,18 @@ export default function MyProfilePage() {
     if (!user) return
     let ignore = false
 
-    const since = new Date()
-    since.setMonth(since.getMonth() - 5)
-    since.setDate(1)
-    since.setHours(0, 0, 0, 0)
-
     ;(async () => {
-      const [countRes, timesRes, membershipRes] = await Promise.allSettled([
-        checkInsService.countByMember(user.id),
-        checkInsService.getSinceByMember(user.id, since.toISOString()),
+      const membershipRes = await Promise.allSettled([
         membershipsService.getActiveWithType(user.id),
-      ])
+      ]).then(([res]) => res)
       if (ignore) return
 
-      setCheckinCount(countRes.status === 'fulfilled' ? countRes.value : 0)
-      setVisitTimes(timesRes.status === 'fulfilled' ? timesRes.value : [])
       if (membershipRes.status === 'fulfilled') setMembership(membershipRes.value)
       setLoading(false)
     })()
 
     return () => { ignore = true }
   }, [user])
-
-  const months = useMemo(() => {
-    const now = new Date()
-    const base: { key: string; label: string; value: number }[] = []
-    for (let i = 5; i >= 0; i--) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
-      base.push({
-        key: `${d.getFullYear()}-${d.getMonth()}`,
-        label: d.toLocaleDateString('es-MX', { month: 'short' }),
-        value: 0,
-      })
-    }
-    const index = new Map(base.map(point => [point.key, point]))
-    for (const iso of visitTimes) {
-      const d = new Date(iso)
-      const point = index.get(`${d.getFullYear()}-${d.getMonth()}`)
-      if (point) point.value += 1
-    }
-    return base
-  }, [visitTimes])
 
   if (!user) {
     return (
@@ -113,8 +83,6 @@ export default function MyProfilePage() {
     0,
     (now.getFullYear() - memberSince.getFullYear()) * 12 + now.getMonth() - memberSince.getMonth(),
   )
-
-  const hasVisits = months.some(point => point.value > 0)
 
   const openEdit = () => {
     setEditName(user.full_name)
@@ -166,8 +134,8 @@ export default function MyProfilePage() {
       })
       toast.success('Perfil actualizado')
       setEditOpen(false)
-    } catch (err: any) {
-      toast.error(err.message || 'Error al actualizar el perfil')
+    } catch (err) {
+      toast.error(getErrorMessage(err, 'Error al actualizar el perfil'))
     } finally {
       setEditSaving(false)
     }
@@ -179,8 +147,8 @@ export default function MyProfilePage() {
       await useAuthStore.getState().deleteAccount()
       toast.success('Tu cuenta ha sido eliminada')
       navigate('/login')
-    } catch (err: any) {
-      toast.error(err.message || 'Error al eliminar la cuenta')
+    } catch (err) {
+      toast.error(getErrorMessage(err, 'Error al eliminar la cuenta'))
     } finally {
       setDeleting(false)
       setShowDeleteModal(false)
@@ -202,8 +170,8 @@ export default function MyProfilePage() {
 
   return (
     <>
-      <header className="sticky top-0 z-30 border-b border-border bg-bg/95 backdrop-blur safe-top">
-        <div className="mx-auto flex h-14 w-full max-w-[560px] items-center justify-between gap-3 px-4 sm:px-5">
+      <header className="sticky top-0 z-30 bg-bg/85 backdrop-blur-xl safe-top">
+        <div className="mx-auto flex h-14 w-full max-w-[560px] lg:max-w-[720px] items-center justify-between gap-3 px-4 sm:px-5">
           <h1 className="text-[17px] font-bold truncate">{user.full_name}</h1>
           <div className="flex items-center gap-1 shrink-0">
           <HeaderAction label="Editar perfil" onClick={openEdit}>
@@ -221,7 +189,7 @@ export default function MyProfilePage() {
         </div>
       </header>
 
-      <main className="px-4 sm:px-5 py-5 pb-10 flex-1 max-w-[560px] mx-auto w-full">
+      <PageContainer className="flex-1 pb-10">
         {/* Identidad + estadísticas */}
         <section className="flex items-center gap-4 animate-slide-up">
           <div
@@ -240,35 +208,36 @@ export default function MyProfilePage() {
               )}
             </div>
 
-            <div className="flex items-center gap-5 mt-2.5">
-              <Stat value={monthsAsMember} label="Meses" />
-              <Stat value={checkinCount} label="Visitas" />
-              <Stat value={0} label="Entrenos" />
-            </div>
+            {!isAdmin && (
+              <div className="flex items-center gap-5 mt-2.5">
+                <Stat value={monthsAsMember} label="Meses" />
+                <Stat value={0} label="Entrenos" />
+              </div>
+            )}
           </div>
         </section>
 
-        {/* Actividad */}
-        <section className="mt-5 bg-surface  rounded-2xl p-4 animate-slide-up stagger-2">
+        {/* Panel de configuración (solo administrador) */}
+        {isAdmin && <AdminSettingsPanel />}
+
+        {/* Actividad (solo miembros y entrenadores) */}
+        {!isAdmin && (
+        <section className="mt-5 bg-surface rounded-card p-5 animate-slide-up stagger-2">
           <div className="flex items-center justify-between gap-2 mb-3">
             <div className="text-[13px] font-semibold">Actividad</div>
             <div className="text-[10px] uppercase tracking-[0.08em] text-text-3 font-bold">Últimos 6 meses</div>
           </div>
 
-          {activeMetric === 'visits' && hasVisits ? (
-            <ActivityChart data={months} />
-          ) : (
-            <div className="h-[132px] flex flex-col items-center justify-center gap-2">
-              <div className="w-11 h-11 rounded-full bg-surface2 text-text-3 flex items-center justify-center">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
-                  <line x1="6" y1="20" x2="6" y2="13" /><line x1="12" y1="20" x2="12" y2="6" /><line x1="18" y1="20" x2="18" y2="10" />
-                </svg>
-              </div>
-              <div className="text-[12px] text-text-3">Aún no hay datos</div>
+          <div className="h-[132px] flex flex-col items-center justify-center gap-2">
+            <div className="w-11 h-11 rounded-full bg-surface2 text-text-3 flex items-center justify-center">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+                <line x1="6" y1="20" x2="6" y2="13" /><line x1="12" y1="20" x2="12" y2="6" /><line x1="18" y1="20" x2="18" y2="10" />
+              </svg>
             </div>
-          )}
+            <div className="text-[12px] text-text-3">Aún no hay datos</div>
+          </div>
 
-          <div className="flex gap-2 overflow-x-auto mt-4 pb-0.5">
+          <div className="flex gap-2 overflow-x-auto scrollbar-none mt-4 pb-0.5">
             {METRICS.map(metric => {
               const isActive = activeMetric === metric.key
               return (
@@ -289,8 +258,10 @@ export default function MyProfilePage() {
             })}
           </div>
         </section>
+        )}
 
-        {/* Accesos */}
+        {/* Accesos personales (solo miembros y entrenadores) */}
+        {!isAdmin && (
         <section className="mt-5 animate-slide-up stagger-3">
           <div className="text-[10px] uppercase tracking-[0.08em] text-text-3 font-bold mb-2">Información</div>
           <div className="grid grid-cols-2 gap-3">
@@ -311,11 +282,14 @@ export default function MyProfilePage() {
             />
             <GridAction
               label="Calendario"
+              hint="Próximamente"
+              disabled
               icon={<><rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></>}
-              onClick={() => navigate('/my-checkins')}
+              onClick={() => {}}
             />
           </div>
         </section>
+        )}
 
         {SHOW_DELETE_ACCOUNT && (
           <div className="mt-6">
@@ -331,7 +305,7 @@ export default function MyProfilePage() {
             </button>
           </div>
         )}
-      </main>
+      </PageContainer>
 
       <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
 
@@ -489,19 +463,37 @@ function Stat({ value, label }: { value: number; label: string }) {
   )
 }
 
-function GridAction({ label, icon, onClick }: { label: string; icon: ReactNode; onClick: () => void }) {
+function GridAction({
+  label,
+  icon,
+  onClick,
+  disabled,
+  hint,
+}: {
+  label: string
+  icon: ReactNode
+  onClick: () => void
+  disabled?: boolean
+  hint?: string
+}) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className="bg-surface  rounded-2xl p-4 flex items-center gap-3 text-left cursor-pointer border-accent/30 transition-colors"
+      disabled={disabled}
+      className={`bg-surface rounded-card p-4 flex items-center gap-3 text-left transition-colors ${
+        disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer border-accent/30'
+      }`}
     >
       <span className="w-9 h-9 rounded-full bg-accent-dim text-accent flex items-center justify-center shrink-0">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
           {icon}
         </svg>
       </span>
-      <span className="text-[12px] font-semibold text-text truncate">{label}</span>
+      <span className="min-w-0">
+        <span className="block text-[12px] font-semibold text-text truncate">{label}</span>
+        {hint && <span className="block text-[10px] text-text-3 mt-0.5">{hint}</span>}
+      </span>
     </button>
   )
 }

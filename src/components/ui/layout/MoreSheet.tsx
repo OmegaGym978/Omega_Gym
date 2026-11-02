@@ -8,6 +8,7 @@ interface Props {
   onClose: () => void
   items: NavLink[]
   icons: Record<string, string>
+  badges?: Record<string, number>
   onSettings: () => void
   roleLabel: string
 }
@@ -23,7 +24,7 @@ function NavIcon({ path }: { path: string }) {
 }
 
 /** Hoja "Más": resto de secciones en celdas agrupadas. */
-export function MoreSheet({ open, onClose, items, icons, onSettings, roleLabel }: Props) {
+export function MoreSheet({ open, onClose, items, icons, badges, onSettings, roleLabel }: Props) {
   return (
     <BottomSheet open={open} onClose={onClose} title="Más" subtitle={roleLabel} maxWidth="560px">
       <ListGroup>
@@ -32,6 +33,7 @@ export function MoreSheet({ open, onClose, items, icons, onSettings, roleLabel }
             key={item.href}
             title={item.label}
             icon={<NavIcon path={icons[item.icon] || ''} />}
+            badge={badges?.[item.href]}
             chevron
             href={item.href}
             onClick={onClose}

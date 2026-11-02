@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import { toast } from 'sonner'
 import { trainingService, type ExerciseInput, type PlanSet } from '@/services/training.service'
 import type { Exercise } from '@/services/exercises.service'
@@ -9,6 +9,7 @@ import { ConfirmSheet } from '@/components/ui/molecules/ConfirmSheet'
 import type { BuilderExercise, BuilderSet, EditPlanData } from './types'
 
 export type { EditPlanData } from './types'
+import { getErrorMessage } from '@/lib/helpers'
 
 interface Props {
   open: boolean
@@ -20,7 +21,8 @@ interface Props {
 
 let _tempCounter = 0
 function tempKey(): string {
-  return `tmp_${Date.now()}_${++_tempCounter}`
+  // Contador monotónico: evita usar el reloj (impuro) al sembrar el builder.
+  return `tmp_${++_tempCounter}`
 }
 
 /** Series del formulario a partir de un plan guardado (con o sin set_details). */
@@ -68,15 +70,45 @@ function snapshot(name: string, description: string, exercises: BuilderExercise[
 }
 
 const SET_INPUT =
-  'h-11 w-full bg-surface2 border border-border rounded-xl px-3 text-center text-[14px] font-semibold ' +
-  'text-text outline-none placeholder:text-text-3 focus:border-accent/60 transition-colors'
+  'h-11 w-full bg-surface2 border-none rounded-xl px-3 text-center text-[14px] font-semibold ' +
+  'text-text outline-none placeholder:text-text-2 focus:ring-2 focus:ring-accent/30 transition-shadow'
+
+/** Estado inicial del formulario a partir del plan que se edita (o vacío). */
+function seedFromPlan(editPlan?: EditPlanData | null): {
+  name: string
+  description: string
+  exercises: BuilderExercise[]
+} {
+  const name = editPlan?.name ?? ''
+  const description = editPlan?.description ?? ''
+  const exercises: BuilderExercise[] = editPlan
+    ? [...editPlan.exercises]
+        .sort((a, b) => a.order_index - b.order_index)
+        .map(ex => ({
+          key: tempKey(),
+          exercise_id: ex.exercise_id ?? null,
+          exercise_name: ex.exercise_name,
+          muscle: ex.muscle,
+          sets: ex.sets,
+          reps: ex.reps,
+          rest_seconds: ex.rest_seconds,
+          notes: ex.notes,
+          reference_link: ex.reference_link,
+          set_details: setsFromPlan(ex),
+        }))
+    : []
+  return { name, description, exercises }
+}
 
 export function RoutineBuilder({ open, onClose, onSave, editPlan, kind = 'trainer' }: Props) {
   const user = useAuthStore(s => s.user)
 
-  const [name, setName] = useState('')
-  const [description, setDescription] = useState('')
-  const [exercises, setExercises] = useState<BuilderExercise[]>([])
+  // El formulario se siembra al montar: los padres remontan con `key` en cada
+  // apertura, así no hace falta reiniciar el estado desde un effect.
+  const [seed] = useState(() => seedFromPlan(editPlan))
+  const [name, setName] = useState(seed.name)
+  const [description, setDescription] = useState(seed.description)
+  const [exercises, setExercises] = useState<BuilderExercise[]>(seed.exercises)
 
   const [pickerOpen, setPickerOpen] = useState(false)
   const [menuKey, setMenuKey] = useState<string | null>(null)
@@ -84,40 +116,7 @@ export function RoutineBuilder({ open, onClose, onSave, editPlan, kind = 'traine
   const [confirm, setConfirm] = useState<'close' | 'empty' | null>(null)
   const [triedName, setTriedName] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [baseline, setBaseline] = useState('')
-
-  useEffect(() => {
-    if (!open) return
-    const nextName = editPlan?.name ?? ''
-    const nextDescription = editPlan?.description ?? ''
-    const nextExercises: BuilderExercise[] = editPlan
-      ? [...editPlan.exercises]
-          .sort((a, b) => a.order_index - b.order_index)
-          .map(ex => ({
-            key: tempKey(),
-            exercise_id: ex.exercise_id ?? null,
-            exercise_name: ex.exercise_name,
-            muscle: ex.muscle,
-            sets: ex.sets,
-            reps: ex.reps,
-            rest_seconds: ex.rest_seconds,
-            notes: ex.notes,
-            reference_link: ex.reference_link,
-            set_details: setsFromPlan(ex),
-          }))
-      : []
-
-    setName(nextName)
-    setDescription(nextDescription)
-    setExercises(nextExercises)
-    setBaseline(snapshot(nextName, nextDescription, nextExercises))
-    setPickerOpen(false)
-    setMenuKey(null)
-    setMeta(null)
-    setConfirm(null)
-    setTriedName(false)
-    setSaving(false)
-  }, [open, editPlan])
+  const [baseline] = useState(() => snapshot(seed.name, seed.description, seed.exercises))
 
   const isDirty = useMemo(
     () => open && snapshot(name, description, exercises) !== baseline,
@@ -254,8 +253,8 @@ export function RoutineBuilder({ open, onClose, onSave, editPlan, kind = 'traine
       toast.success(editPlan ? 'Rutina actualizada' : kind === 'personal' ? 'Rutina creada' : 'Plan creado')
       onSave(planId)
       onClose()
-    } catch (e: any) {
-      toast.error('Error al guardar: ' + (e?.message || 'intenta de nuevo'))
+    } catch (e) {
+      toast.error('Error al guardar: ' + getErrorMessage(e, 'intenta de nuevo'))
     } finally {
       setSaving(false)
     }
@@ -288,7 +287,7 @@ export function RoutineBuilder({ open, onClose, onSave, editPlan, kind = 'traine
   return (
     <div className="fixed inset-0 z-[55] bg-bg flex flex-col animate-picker-in">
       {/* Header */}
-      <header className="shrink-0 flex items-center justify-between gap-2 px-3 sm:px-5 h-14 border-b border-border bg-bg/95 backdrop-blur">
+      <header className="shrink-0 flex items-center justify-between gap-2 px-3 sm:px-5 h-14 bg-bg/85 backdrop-blur-xl">
         <button
           onClick={attemptClose}
           className="text-[13px] font-semibold text-accent bg-transparent border-none cursor-pointer px-2 py-2 rounded-full transition-colors"
@@ -306,34 +305,37 @@ export function RoutineBuilder({ open, onClose, onSave, editPlan, kind = 'traine
       </header>
 
       {/* Contenido */}
-      <div className="flex-1 overflow-y-auto px-4 sm:px-6 pt-5 pb-8 max-w-[720px] mx-auto w-full">
-        <input
-          value={name}
-          onChange={e => { setName(e.target.value); setTriedName(false) }}
-          placeholder="Título de la rutina"
-          aria-label="Título de la rutina"
-          className={`w-full bg-transparent border-none outline-none text-[26px] sm:text-[30px] font-bold text-text placeholder:text-text-3/70 pb-1 ${
-            triedName && !name.trim() ? 'placeholder:text-red-text' : ''
-          }`}
-        />
-        {triedName && !name.trim() && (
-          <div className="text-[11px] text-red-text mt-1">Ponle un título a tu rutina</div>
-        )}
+      <div className="flex-1 overflow-y-auto scrollbar-none px-4 sm:px-6 pt-5 pb-4 max-w-[720px] mx-auto w-full">
+        {/* Datos de la rutina agrupados en una tarjeta */}
+        <div className="bg-surface rounded-[32px] p-5">
+          <input
+            value={name}
+            onChange={e => { setName(e.target.value); setTriedName(false) }}
+            placeholder="Título de la rutina"
+            aria-label="Título de la rutina"
+            className={`w-full bg-surface2 border-none rounded-2xl px-4 py-3.5 outline-none text-[20px] font-bold text-text placeholder:text-text-2 focus:ring-2 focus:ring-accent/30 transition-shadow ${
+              triedName && !name.trim() ? 'placeholder:text-red-text' : ''
+            }`}
+          />
+          {triedName && !name.trim() && (
+            <div className="text-[11px] text-red-text mt-1.5 px-1">Ponle un título a tu rutina</div>
+          )}
 
-        <textarea
-          value={description}
-          onChange={e => setDescription(e.target.value)}
-          placeholder="Describe el objetivo de la rutina (opcional)"
-          rows={2}
-          className="mt-2 w-full bg-transparent border-none outline-none resize-none text-[13px] leading-relaxed text-text-2 placeholder:text-text-3"
-        />
+          <textarea
+            value={description}
+            onChange={e => setDescription(e.target.value)}
+            placeholder="Describe el objetivo de la rutina (opcional)"
+            rows={2}
+            className="mt-3 w-full bg-surface2 border-none rounded-2xl px-4 py-3.5 resize-none text-[13px] leading-relaxed text-text-2 placeholder:text-text-2 outline-none focus:ring-2 focus:ring-accent/30 transition-shadow"
+          />
+        </div>
 
         <div className="mt-5 flex items-center justify-between">
-          <div className="text-[11px] uppercase tracking-[0.08em] text-text-3 font-bold">
+          <div className="text-[11px] uppercase tracking-[0.08em] text-text-2 font-bold">
             Ejercicios
           </div>
           {exercises.length > 0 && (
-            <div className="text-[11px] text-text-3">
+            <div className="text-[11px] text-text-2">
               {exercises.length} ejercicio{exercises.length !== 1 ? 's' : ''} ·{' '}
               {exercises.reduce((acc, e) => acc + e.set_details.length, 0)} series
             </div>
@@ -347,14 +349,14 @@ export function RoutineBuilder({ open, onClose, onSave, editPlan, kind = 'traine
                 <path d="M6.5 6.5l11 11M4 9v6M20 9v6M7 7v10M17 7v10" />
               </svg>
             </div>
-            <p className="text-sm text-text-3 max-w-[240px] leading-relaxed">
+            <p className="text-sm text-text-2 max-w-[240px] leading-relaxed">
               Empieza agregando un ejercicio a tu rutina
             </p>
           </div>
         ) : (
           <div className="flex flex-col gap-3 mt-3">
             {exercises.map((ex, idx) => (
-              <article key={ex.key} className="bg-surface  rounded-2xl p-4">
+              <article key={ex.key} className="bg-surface rounded-card p-5">
                 {/* Cabecera del ejercicio */}
                 <div className="flex items-center gap-3">
                   {ex.reference_link && ex.reference_link.endsWith('.gif') ? (
@@ -375,7 +377,7 @@ export function RoutineBuilder({ open, onClose, onSave, editPlan, kind = 'traine
                   <div className="min-w-0 flex-1">
                     <div className="text-[14px] font-semibold truncate">{ex.exercise_name}</div>
                     {ex.muscle && (
-                      <div className="text-[11px] text-text-3 truncate mt-0.5">{ex.muscle}</div>
+                      <div className="text-[11px] text-text-2 truncate mt-0.5">{ex.muscle}</div>
                     )}
                   </div>
 
@@ -395,7 +397,7 @@ export function RoutineBuilder({ open, onClose, onSave, editPlan, kind = 'traine
                     {menuKey === ex.key && (
                       <>
                         <div className="fixed inset-0 z-20" onClick={() => setMenuKey(null)} />
-                        <div className="absolute right-0 top-10 z-30 w-52 bg-surface2 border border-border2 rounded-2xl  overflow-hidden">
+                        <div className="absolute right-0 top-10 z-30 w-52 bg-surface2 border border-border2 rounded-tile  overflow-hidden">
                           <MenuAction
                             label="Mover arriba"
                             disabled={idx === 0}
@@ -454,9 +456,9 @@ export function RoutineBuilder({ open, onClose, onSave, editPlan, kind = 'traine
 
                 {/* Encabezado de columnas */}
                 <div className="grid grid-cols-[40px_1fr_1fr_24px] gap-2 mt-3 px-1">
-                  <span className="text-[10px] font-bold text-text-3 tracking-[0.06em]">SERIE</span>
-                  <span className="text-[10px] font-bold text-text-3 tracking-[0.06em]">KGS</span>
-                  <span className="text-[10px] font-bold text-text-3 tracking-[0.06em] inline-flex items-center gap-1">
+                  <span className="text-[10px] font-bold text-text-2 tracking-[0.06em]">SERIE</span>
+                  <span className="text-[10px] font-bold text-text-2 tracking-[0.06em]">KGS</span>
+                  <span className="text-[10px] font-bold text-text-2 tracking-[0.06em] inline-flex items-center gap-1">
                     REPS
                     <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round">
                       <polyline points="6 9 12 15 18 9" />
@@ -519,20 +521,26 @@ export function RoutineBuilder({ open, onClose, onSave, editPlan, kind = 'traine
             ))}
           </div>
         )}
+      </div>
 
-        <button
-          type="button"
-          onClick={() => setPickerOpen(true)}
-          className="mt-4 w-full py-3.5 rounded-full bg-accent text-accent-contrast text-[13px] font-bold border border-accent/25 cursor-pointer transition-all active:scale-[0.99] inline-flex items-center justify-center gap-2"
-        >
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-            <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
-          </svg>
-          Agregar ejercicio
-        </button>
+      {/* Acción principal anclada al pie, fuera de las tarjetas */}
+      <div className="shrink-0 px-4 sm:px-6 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))] bg-bg/85 backdrop-blur-xl">
+        <div className="max-w-[720px] mx-auto w-full">
+          <button
+            type="button"
+            onClick={() => setPickerOpen(true)}
+            className="w-full h-12 rounded-full bg-accent text-accent-contrast text-[13px] font-bold border-none cursor-pointer transition-all active:scale-[0.99] inline-flex items-center justify-center gap-2"
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+              <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+            Agregar ejercicio
+          </button>
+        </div>
       </div>
 
       <ExerciseMultiPicker
+        key={pickerOpen ? 'o' : 'c'}
         open={pickerOpen}
         onClose={() => setPickerOpen(false)}
         onConfirm={addExercises}
@@ -540,6 +548,7 @@ export function RoutineBuilder({ open, onClose, onSave, editPlan, kind = 'traine
       />
 
       <ExerciseMetaSheet
+        key={`${meta?.key ?? ''}-${meta?.mode ?? ''}`}
         open={meta !== null && !!metaExercise}
         mode={meta?.mode ?? 'note'}
         exercise={metaExercise}

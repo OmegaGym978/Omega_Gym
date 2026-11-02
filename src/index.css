@@ -22,9 +22,9 @@
   --color-text-4: #52525b;
 
   /* ---- Acento (coral por defecto; intercambiable con data-accent) ---- */
-  --color-accent: #e85d5d;
-  --color-accent-dim: rgba(232, 93, 93, 0.16);
-  --color-accent-text: #f08989;
+  --color-accent: #ff4f4f;
+  --color-accent-dim: rgba(255, 79, 79, 0.16);
+  --color-accent-text: #ff8a8a;
   --color-accent-contrast: #ffffff;
 
   /* ---- Semánticos ---- */
@@ -53,12 +53,14 @@
   --font-sans: "JetBrains Mono", ui-monospace, monospace;
   --font-mono: "JetBrains Mono", ui-monospace, monospace;
   --font-display: "JetBrains Mono", ui-monospace, monospace;
+  --font-ios: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 
-  /* ---- Radios ---- */
+  /* ---- Radios (escala iOS) ---- */
   --radius: 1rem;
   --radius-sm: 0.75rem;
-  --radius-card: 1.25rem;
-  --radius-sheet: 1.5rem;
+  --radius-tile: 1.25rem;   /* 20px — chips, badges y tiles internos */
+  --radius-card: 1.75rem;   /* 28px — tarjetas */
+  --radius-sheet: 2rem;     /* 32px — hojas inferiores */
 }
 
 /* ------------------------------------------------------------------
@@ -70,7 +72,7 @@
   --accent-dim: var(--color-accent-dim);
   --accent-text: var(--color-accent-text);
   --accent-contrast: var(--color-accent-contrast);
-  --accent-rgb: 232, 93, 93;
+  --accent-rgb: 255, 79, 79;
 
   --bg: var(--color-bg);
   --surface: var(--color-surface);
@@ -94,43 +96,65 @@
 }
 
 [data-accent="ember"] {
-  --color-accent: #f4511e;
-  --color-accent-dim: rgba(244, 81, 30, 0.16);
-  --color-accent-text: #ff8a65;
-  --color-accent-contrast: #ffffff;
-  --accent-rgb: 244, 81, 30;
+  --color-accent: #ff9f0a;
+  --color-accent-dim: rgba(255, 159, 10, 0.16);
+  --color-accent-text: #ffc46b;
+  --color-accent-contrast: #09090b;
+  --accent-rgb: 255, 159, 10;
 }
 
 [data-accent="violet"] {
-  --color-accent: #a78bfa;
-  --color-accent-dim: rgba(167, 139, 250, 0.16);
-  --color-accent-text: #c4b5fd;
-  --color-accent-contrast: #09090b;
-  --accent-rgb: 167, 139, 250;
-}
-
-[data-accent="teal"] {
-  --color-accent: #2dd4bf;
-  --color-accent-dim: rgba(45, 212, 191, 0.16);
-  --color-accent-text: #5eead4;
-  --color-accent-contrast: #09090b;
-  --accent-rgb: 45, 212, 191;
+  --color-accent: #bf5af2;
+  --color-accent-dim: rgba(191, 90, 242, 0.16);
+  --color-accent-text: #d9a0f7;
+  --color-accent-contrast: #ffffff;
+  --accent-rgb: 191, 90, 242;
 }
 
 [data-accent="lime"] {
-  --color-accent: #a3e635;
-  --color-accent-dim: rgba(163, 230, 53, 0.16);
-  --color-accent-text: #bef264;
+  --color-accent: #32d74b;
+  --color-accent-dim: rgba(50, 215, 75, 0.16);
+  --color-accent-text: #6ee787;
   --color-accent-contrast: #09090b;
-  --accent-rgb: 163, 230, 53;
+  --accent-rgb: 50, 215, 75;
+}
+
+[data-accent="pink"] {
+  --color-accent: #ff375f;
+  --color-accent-dim: rgba(255, 55, 95, 0.16);
+  --color-accent-text: #ff7e97;
+  --color-accent-contrast: #ffffff;
+  --accent-rgb: 255, 55, 95;
 }
 
 [data-accent="amber"] {
-  --color-accent: #f59e0b;
-  --color-accent-dim: rgba(245, 158, 11, 0.16);
-  --color-accent-text: #fbbf24;
+  --color-accent: #ffd60a;
+  --color-accent-dim: rgba(255, 214, 10, 0.16);
+  --color-accent-text: #ffe45c;
   --color-accent-contrast: #09090b;
-  --accent-rgb: 245, 158, 11;
+  --accent-rgb: 255, 214, 10;
+}
+
+/* ------------------------------------------------------------------
+   Acento de marca fijo.
+   La landing pública y las pantallas de auth siempre usan el coral de
+   marca, sin importar el preset elegido en Ajustes: evita que el CTA y
+   el logo Ω se vuelvan azules/cian. Se aplica con data-brand-accent.
+   ------------------------------------------------------------------ */
+[data-brand-accent="coral"] {
+  --color-accent: #ff4f4f;
+  --color-accent-dim: rgba(255, 79, 79, 0.16);
+  --color-accent-text: #ff8a8a;
+  --color-accent-contrast: #ffffff;
+
+  --accent: #ff4f4f;
+  --accent-dim: rgba(255, 79, 79, 0.16);
+  --accent-text: #ff8a8a;
+  --accent-contrast: #ffffff;
+  --accent-rgb: 255, 79, 79;
+
+  --logo-omega: #ff4f4f;
+  --logo-border: rgba(255, 79, 79, 0.35);
 }
 
 /* ---- Tema claro: solo cambian los neutros; el acento elegido se respeta ---- */
@@ -197,6 +221,20 @@ body {
 ::-webkit-scrollbar { width: 4px; height: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--color-border2); border-radius: 4px; }
+
+/* Barra de scroll oculta (aspecto iOS) sin perder el desplazamiento.
+   Sirve para contenedores con overflow vertical u horizontal:
+   `className="… overflow-y-auto scrollbar-none"` */
+@utility scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+  }
+}
 
 @keyframes pulse {
   0%, 100% { opacity: 1; }

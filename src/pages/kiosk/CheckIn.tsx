@@ -2,6 +2,8 @@
 import { checkInsService, type CheckInWithMember } from '@/services/checkIns.service'
 import { membersService } from '@/services/members.service'
 import { membershipsService } from '@/services/memberships.service'
+import { getErrorMessage } from '@/lib/helpers'
+import { nowMs, waitAtLeast } from '@/lib/timing'
 
 interface CheckResult {
   name?: string
@@ -37,16 +39,13 @@ async function findMemberByName(search: string) {
 }
 
 export default function CheckInKioskPage() {
-  const [time, setTime] = useState<Date | null>(null);
-  const [mounted, setMounted] = useState(false);
+  const [time, setTime] = useState<Date>(() => new Date());
   const [sensorState, setSensorState] = useState<'idle'|'scanning'|'success'|'error'|'warn'>('idle');
   const [result, setResult] = useState<CheckResult | null>(null);
   const [scanning, setScanning] = useState(false);
   const [recent, setRecent] = useState<CheckInWithMember[]>([]);
 
   useEffect(() => {
-    setMounted(true);
-    setTime(new Date());
     const id = setInterval(() => setTime(new Date()), 1000);
 
     checkInsService.getToday().then(setRecent).catch(() => {});
@@ -60,15 +59,14 @@ export default function CheckInKioskPage() {
     setSensorState('scanning');
     setResult(null);
 
-    const start = Date.now()
+    const start = nowMs()
 
     try {
       if (tipo === 'success') {
         const member = await findMemberByName('carlos')
         if (!member) { showError('No se encontró el miembro en la base de datos.'); return }
         const membership = await membershipsService.getActiveByMember(member.id)
-        const elapsed = Date.now() - start
-        if (elapsed < 1500) await new Promise(r => setTimeout(r, 1500 - elapsed))
+        await waitAtLeast(start, 1500)
 
         await checkInsService.create({ member_id: member.id, method: 'fingerprint', membership_id: membership?.id })
 
@@ -89,8 +87,7 @@ export default function CheckInKioskPage() {
         const member = await findMemberByName('sofía')
         if (!member) { showError('No se encontró el miembro en la base de datos.'); return }
         const membership = await membershipsService.getActiveByMember(member.id)
-        const elapsed = Date.now() - start
-        if (elapsed < 1500) await new Promise(r => setTimeout(r, 1500 - elapsed))
+        await waitAtLeast(start, 1500)
 
         await checkInsService.create({ member_id: member.id, method: 'fingerprint', membership_id: membership?.id })
 
@@ -108,8 +105,7 @@ export default function CheckInKioskPage() {
         setRecent(updated)
       }
       else if (tipo === 'warn') {
-        const elapsed = Date.now() - start
-        if (elapsed < 1500) await new Promise(r => setTimeout(r, 1500 - elapsed))
+        await waitAtLeast(start, 1500)
         setSensorState('warn')
         setResult({
           status: 'warn', av: '⚠', avC: '', badgeText: 'Membresía vencida',
@@ -118,8 +114,7 @@ export default function CheckInKioskPage() {
         })
       }
       else if (tipo === 'inactive') {
-        const elapsed = Date.now() - start
-        if (elapsed < 1500) await new Promise(r => setTimeout(r, 1500 - elapsed))
+        await waitAtLeast(start, 1500)
         setSensorState('error')
         setResult({
           status: 'error', av: '✕', avC: '', badgeText: 'Miembro inactivo',
@@ -128,21 +123,19 @@ export default function CheckInKioskPage() {
         })
       }
       else {
-        const elapsed = Date.now() - start
-        if (elapsed < 1500) await new Promise(r => setTimeout(r, 1500 - elapsed))
+        await waitAtLeast(start, 1500)
         showError(
           tipo === 'manual'
             ? 'Modo de acceso manual. Por favor identifícate en recepción.'
             : 'La huella no coincide con ningún miembro registrado.'
         )
       }
-    } catch (err: any) {
-      const elapsed = Date.now() - start
-      if (elapsed < 1500) await new Promise(r => setTimeout(r, 1500 - elapsed))
+    } catch (err) {
+        await waitAtLeast(start, 1500)
       setSensorState('error')
       setResult({
         status: 'error', av: '✕', avC: '', badgeText: 'Error del sistema',
-        msg: err?.message || 'Ocurrió un error al procesar la solicitud.',
+        msg: getErrorMessage(err, 'Ocurrió un error al procesar la solicitud.'),
         sub: 'Intenta de nuevo o acércate a recepción.',
       })
     }
@@ -195,7 +188,7 @@ export default function CheckInKioskPage() {
       `}</style>
 
       {/* Top bar */}
-      <div className="flex items-center justify-between px-8 py-[18px] border-b border-border bg-surface">
+      <div className="flex items-center justify-between px-8 py-[18px] bg-surface">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-2xl flex items-center justify-center"
             style={{ background: 'var(--logo-bg)', border: '1px solid var(--logo-border)' }}>
@@ -215,17 +208,17 @@ export default function CheckInKioskPage() {
           </div>
           <div>
             <div className="text-[22px] font-semibold font-mono tracking-[0.04em] text-text-2">
-              {mounted && time ? time.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : ''}
+              {time.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
             </div>
             <div className="text-xs text-text-3 text-right">
-              {mounted && time ? time.toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) : ''}
+              {time.toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
             </div>
           </div>
         </div>
       </div>
 
       {/* Center */}
-      <div className="flex items-center justify-center flex-col lg:flex-row gap-8 lg:gap-[60px] p-4 lg:p-10 overflow-y-auto">
+      <div className="flex items-center justify-center flex-col lg:flex-row gap-8 lg:gap-[60px] p-4 lg:p-10 overflow-y-auto scrollbar-none">
         {/* Sensor */}
         <div className="flex flex-col items-center gap-7">
           <div className="w-[200px] h-[200px] sm:w-[260px] sm:h-[260px] rounded-full flex items-center justify-center relative transition-colors duration-[400ms]"
@@ -349,7 +342,7 @@ export default function CheckInKioskPage() {
             {recent.length === 0 ? (
               <div className="px-[18px] py-4 text-xs text-text-3">Sin registros a\u00fan.</div>
             ) : (
-              <div className="max-h-[180px] overflow-y-auto">
+              <div className="max-h-[180px] overflow-y-auto scrollbar-none">
                 {recent.map((r, i) => {
                   const c = colorForName(r.member_name)
                   return (
@@ -380,7 +373,7 @@ export default function CheckInKioskPage() {
       </div>
 
       {/* Bottom bar */}
-      <div className="flex items-center justify-between px-8 py-3.5 border-t border-border bg-surface">
+      <div className="flex items-center justify-between px-8 py-3.5 bg-surface">
         <div className="text-xs text-text-3">
           Omega Gym · Terminal de check-in · Registros guardados en <code className="text-[11px] bg-surface2 px-[6px] py-[1px] rounded text-text-2">check_ins</code> · Supabase
         </div>

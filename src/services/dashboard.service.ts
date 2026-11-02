@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase'
 import { deduplicateProfiles } from './members.service'
+import { one, type Embedded } from '@/lib/embed'
 
 export interface DashboardKPIs {
   total_members: number
@@ -24,7 +25,80 @@ export interface PendingPaymentItem {
   due_date: string
 }
 
-const MONTHS_SHORT = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
+export interface ExpiringMembershipItem {
+  id: string
+  member_name: string
+  member_email: string | null
+  type_name: string
+  end_date: string
+  days_remaining: number
+}
+
+/* Relaciones embebidas por PostgREST: `one()` normaliza objeto o arreglo. */
+interface ProfileEmbed {
+  full_name: string | null
+  email?: string | null
+}
+
+interface MembershipTypeEmbed {
+  name: string | null
+  price?: number | string | null
+}
+
+interface ExpiredMembershipRow {
+  id: string
+  end_date: string
+  profiles: Embedded<ProfileEmbed>
+  membership_types: Embedded<MembershipTypeEmbed>
+}
+
+interface MembershipAssignmentRow {
+  id: string
+  created_at: string
+  profiles: Embedded<ProfileEmbed>
+  membership_types: Embedded<MembershipTypeEmbed>
+}
+
+interface ExpiringMembershipRow {
+  id: string
+  end_date: string | null
+  profiles: Embedded<ProfileEmbed>
+  membership_types: Embedded<MembershipTypeEmbed>
+}
+
+interface CheckInActivityRow {
+  id: string
+  check_in_time: string
+  profiles: Embedded<ProfileEmbed>
+}
+
+interface NewMemberRow {
+  id: string
+  full_name: string
+  created_at: string
+}
+
+interface PaymentActivityRow {
+  id: string
+  amount: number | string
+  created_at: string
+  memberships: Embedded<{
+    profiles: Embedded<ProfileEmbed>
+    membership_types: Embedded<MembershipTypeEmbed>
+  }>
+}
+
+interface MembershipTypeDistributionRow {
+  type_id: string
+  membership_types: Embedded<MembershipTypeEmbed>
+}
+
+interface PendingPaymentRow {
+  id: string
+  amount: number | string
+  payment_date: string
+  memberships: Embedded<{ profiles: Embedded<ProfileEmbed> }>
+}
 
 export const dashboardService = {
   getKPIs: async (): Promise<DashboardKPIs> => {
@@ -75,15 +149,16 @@ export const dashboardService = {
     if (monthlyRevenue.error) console.error('KPIs monthlyRevenue query failed:', monthlyRevenue.error)
 
     const dedupedProfiles = deduplicateProfiles(totalMembersResult.data || [])
-    const activeMemberIds = new Set((activeMembershipsResult.data || []).map((m: any) => m.member_id))
+    const activeMemberIds = new Set(
+      ((activeMembershipsResult.data ?? []) as { member_id: string }[]).map((m) => m.member_id)
+    )
     const activeMemberships = activeMemberIds.size
     const inactiveMembers = dedupedProfiles.filter(p => !activeMemberIds.has(p.id)).length
 
-    const revenue =
-      (monthlyRevenue.data || []).reduce(
-        (sum: number, p: any) => sum + Number(p.amount),
-        0
-      )
+    const revenue = ((monthlyRevenue.data ?? []) as { amount: number | string }[]).reduce(
+      (sum, p) => sum + Number(p.amount),
+      0
+    )
 
     return {
       total_members: dedupedProfiles.length,
@@ -154,17 +229,17 @@ export const dashboardService = {
 
     const activities: RecentActivityItem[] = []
 
-    for (const ci of checkIns.data || []) {
+    for (const ci of (checkIns.data ?? []) as CheckInActivityRow[]) {
       activities.push({
         id: `check_in-${ci.id}`,
         type: 'check_in',
-        userName: (ci as any).profiles?.full_name ?? 'Alguien',
+        userName: one(ci.profiles)?.full_name ?? 'Alguien',
         action: 'registró entrada',
         timestamp: ci.check_in_time,
       })
     }
 
-    for (const nm of newMembers.data || []) {
+    for (const nm of (newMembers.data ?? []) as NewMemberRow[]) {
       activities.push({
         id: `new_member-${nm.id}`,
         type: 'new_member',
@@ -174,34 +249,35 @@ export const dashboardService = {
       })
     }
 
-    for (const em of (expiredMemberships.data || []) as any[]) {
-      const typeName = em.membership_types?.name ?? ''
+    for (const em of (expiredMemberships.data ?? []) as ExpiredMembershipRow[]) {
+      const typeName = one(em.membership_types)?.name ?? ''
       if (typeName === 'Visita') continue
       activities.push({
         id: `expired_membership-${em.id}`,
         type: 'expired_membership',
-        userName: em.profiles?.full_name ?? 'Alguien',
+        userName: one(em.profiles)?.full_name ?? 'Alguien',
         action: `membresía ${typeName} vencida`,
         timestamp: em.end_date,
       })
     }
 
-    for (const rp of (recentPayments.data || []) as any[]) {
+    for (const rp of (recentPayments.data ?? []) as PaymentActivityRow[]) {
+      const membership = one(rp.memberships)
       activities.push({
         id: `payment-${rp.id}`,
         type: 'payment',
-        userName: rp.memberships?.profiles?.full_name ?? 'Alguien',
-        action: `pagó ${rp.memberships?.membership_types?.name ?? 'membresía'} ($${Number(rp.amount).toLocaleString()})`,
+        userName: one(membership?.profiles)?.full_name ?? 'Alguien',
+        action: `pagó ${one(membership?.membership_types)?.name ?? 'membresía'} ($${Number(rp.amount).toLocaleString()})`,
         timestamp: rp.created_at,
       })
     }
 
-    for (const ra of (recentAssignments.data || []) as any[]) {
+    for (const ra of (recentAssignments.data ?? []) as MembershipAssignmentRow[]) {
       activities.push({
         id: `membership_assigned-${ra.id}`,
         type: 'membership_assigned',
-        userName: ra.profiles?.full_name ?? 'Alguien',
-        action: `nueva membresía ${ra.membership_types?.name ?? ''}`,
+        userName: one(ra.profiles)?.full_name ?? 'Alguien',
+        action: `nueva membresía ${one(ra.membership_types)?.name ?? ''}`,
         timestamp: ra.created_at,
       })
     }
@@ -210,7 +286,7 @@ export const dashboardService = {
     return activities.slice(0, limit)
   },
 
-  getExpiringMemberships: async (days: number = 7) => {
+  getExpiringMemberships: async (days: number = 7): Promise<ExpiringMembershipItem[]> => {
     await supabase.rpc('sync_membership_status')
     const today = new Date().toISOString().split('T')[0]
     const future = new Date()
@@ -232,21 +308,21 @@ export const dashboardService = {
     if (error) throw error
     const now = new Date()
     const todayLocal = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-    return (data || [])
-      .map((m: any) => {
+    return ((data ?? []) as ExpiringMembershipRow[])
+      .map((m): ExpiringMembershipItem | null => {
         if (!m.end_date) return null
         const [y, mo, d] = m.end_date.split('-').map(Number)
         const endLocal = new Date(y, mo - 1, d)
         return {
           id: m.id,
-          member_name: m.profiles?.full_name ?? '—',
-          member_email: m.profiles?.email ?? null,
-          type_name: m.membership_types?.name ?? '—',
+          member_name: one(m.profiles)?.full_name ?? '—',
+          member_email: one(m.profiles)?.email ?? null,
+          type_name: one(m.membership_types)?.name ?? '—',
           end_date: m.end_date,
           days_remaining: Math.round((endLocal.getTime() - todayLocal.getTime()) / 86400000),
         }
       })
-      .filter((m): m is NonNullable<typeof m> => m !== null && m.days_remaining > 0)
+      .filter((m): m is ExpiringMembershipItem => m !== null && m.days_remaining > 0)
   },
 
   getMembershipTypeDistribution: async (): Promise<{ name: string; count: number; price: number }[]> => {
@@ -268,9 +344,10 @@ export const dashboardService = {
     }
 
     const map = new Map<string, { name: string; count: number; price: number }>()
-    for (const m of (data || []) as any[]) {
+    for (const m of (data ?? []) as MembershipTypeDistributionRow[]) {
       const id = m.type_id
-      const entry = map.get(id) || { name: m.membership_types?.name ?? '—', count: 0, price: Number(m.membership_types?.price) || 0 }
+      const type = one(m.membership_types)
+      const entry = map.get(id) || { name: type?.name ?? '—', count: 0, price: Number(type?.price) || 0 }
       entry.count++
       map.set(id, entry)
     }
@@ -292,9 +369,9 @@ export const dashboardService = {
 
     if (error) throw error
 
-    return (data || []).map((p: any) => ({
+    return ((data ?? []) as PendingPaymentRow[]).map((p) => ({
       id: p.id,
-      member_name: p.memberships?.profiles?.full_name ?? '—',
+      member_name: one(one(p.memberships)?.profiles)?.full_name ?? '—',
       amount: Number(p.amount),
       due_date: p.payment_date,
     }))

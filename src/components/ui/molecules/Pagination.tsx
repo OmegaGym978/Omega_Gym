@@ -36,7 +36,7 @@ export function Pagination({
   const pages = getPageNumbers(current, total);
 
   return (
-    <div className="flex flex-col sm:flex-row sm:items-center justify-between px-4.5 py-3 border-t border-border bg-surface2 gap-2">
+    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mt-3 px-5 py-3 bg-surface rounded-[24px]">
       <span className="text-xs text-text-3">
         Mostrando {start + 1}–{end} de {totalItems} {label}
       </span>

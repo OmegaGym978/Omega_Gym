@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase'
 import { checkInsService } from '@/services/checkIns.service'
 import { localDateKey, startOfWeek } from '@/lib/dates'
+import { FINGERPRINT_ENABLED } from '@/lib/features'
 
 export interface SessionSetInput {
   exercise_id: string | null
@@ -94,13 +95,17 @@ export const sessionsService = {
         .select('id, started_at, total_volume')
         .eq('member_id', memberId)
         .gte('started_at', since),
-      checkInsService.getSinceByMember(memberId, since).catch(() => [] as string[]),
+      // Las visitas salen de check-ins (huella), aún no liberados: en producción
+      // no se consulta la tabla y el contador queda en 0.
+      FINGERPRINT_ENABLED
+        ? checkInsService.getSinceByMember(memberId, since).catch(() => [] as string[])
+        : Promise.resolve([] as string[]),
     ])
 
     if (sessionsRes.error) throw sessionsRes.error
 
-    const sessions = sessionsRes.data || []
-    const volume = sessions.reduce((acc: number, s: any) => acc + Number(s.total_volume || 0), 0)
+    const sessions = (sessionsRes.data ?? []) as { total_volume: number | string | null }[]
+    const volume = sessions.reduce((acc, s) => acc + Number(s.total_volume || 0), 0)
 
     // Racha: días consecutivos con sesión, contando desde hoy o ayer.
     const { data: recent, error: recentError } = await supabase
@@ -112,7 +117,7 @@ export const sessionsService = {
 
     if (recentError) throw recentError
 
-    const trainedDays = new Set((recent || []).map((r: any) => localDateKey(new Date(r.started_at))))
+    const trainedDays = new Set(((recent ?? []) as { started_at: string }[]).map((r) => localDateKey(new Date(r.started_at))))
     let streak = 0
     const cursor = new Date()
     if (!trainedDays.has(localDateKey(cursor))) cursor.setDate(cursor.getDate() - 1)

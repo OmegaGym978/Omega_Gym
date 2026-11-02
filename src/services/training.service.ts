@@ -1,5 +1,7 @@
 import { supabase } from '@/lib/supabase'
 import { isMissingColumnError } from '@/lib/supabase-errors'
+import { one, type Embedded } from '@/lib/embed'
+import { membershipsService, NO_ACTIVE_MEMBERSHIP_MESSAGE } from './memberships.service'
 
 function escapeSearch(s: string): string {
   return s.replace(/[%_\\]/g, '\\$&')
@@ -71,11 +73,29 @@ export interface PlanListItem {
   created_at: string
 }
 
+/** Plan completo con ejercicios y asignados (detalle del panel de staff). */
+export interface PlanDetail extends TrainingPlan {
+  exercises: PlanExercise[]
+  assignees: { id: string; full_name: string }[]
+}
+
 export interface PlanFilters {
   search?: string
   type?: string
   page?: number
   pageSize?: number
+}
+
+/** Fila de `training_plans` con las relaciones embebidas del listado. */
+interface PlanRow {
+  id: string
+  name: string
+  description: string | null
+  assigned_to: string | null
+  created_at: string
+  scheduled_days: number[] | null
+  creator: Embedded<{ full_name: string | null }>
+  plan_exercises?: { count: number }[] | null
 }
 
 export const trainingService = {
@@ -111,7 +131,7 @@ export const trainingService = {
 
     if (error) throw error
 
-    const plan_ids: string[] = (data || []).map(p => p.id)
+    const plan_ids: string[] = ((data ?? []) as PlanRow[]).map(p => p.id)
 
     const [assignmentsRes, memberProfileRes] = await Promise.all([
       supabase
@@ -121,7 +141,7 @@ export const trainingService = {
       supabase
         .from('profiles')
         .select('id, full_name')
-        .in('id', [...new Set((data || []).map((p: any) => p.assigned_to).filter(Boolean))]),
+        .in('id', [...new Set(((data ?? []) as PlanRow[]).map((p) => p.assigned_to).filter((id): id is string => Boolean(id)))]),
     ])
 
     const memberNameById: Record<string, string> = {}
@@ -135,7 +155,7 @@ export const trainingService = {
     }
 
     return {
-      data: (data || []).map((p: any): PlanListItem => {
+      data: ((data ?? []) as PlanRow[]).map((p): PlanListItem => {
         const memberIds = assigneeIdsByPlan[p.id] || []
         if (p.assigned_to && !memberIds.includes(p.assigned_to)) memberIds.push(p.assigned_to)
         const memberNames = memberIds.map(id => memberNameById[id] || '—')
@@ -147,7 +167,7 @@ export const trainingService = {
           name: p.name,
           description: p.description,
           type,
-          trainer_name: p.creator?.full_name ?? '—',
+          trainer_name: one(p.creator)?.full_name ?? '—',
           member_name: extraCount > 0 ? `${memberName} +${extraCount}` : memberName,
           member_ids: memberIds,
           member_names: memberNames,
@@ -162,7 +182,7 @@ export const trainingService = {
     }
   },
 
-  getById: async (id: string) => {
+  getById: async (id: string): Promise<PlanDetail> => {
     const { data: plan, error } = await supabase
       .from('training_plans')
       .select(`
@@ -190,9 +210,10 @@ export const trainingService = {
     if (exercisesRes.error) throw exercisesRes.error
 
     return {
-      ...plan,
+      ...(plan as TrainingPlan),
       exercises: (exercisesRes.data || []) as PlanExercise[],
-      assignees: (assigneesRes.data || []).map(a => ({ id: a.member_id, full_name: (a.member as any).full_name })),
+      assignees: ((assigneesRes.data ?? []) as { member_id: string; member: Embedded<{ full_name: string | null }> }[])
+        .map((a) => ({ id: a.member_id, full_name: one(a.member)?.full_name ?? '' })),
     }
   },
 
@@ -331,6 +352,9 @@ export const trainingService = {
   },
 
   assign: async (id: string, memberId: string): Promise<void> => {
+    const activeIds = await membershipsService.getActiveMemberIds([memberId])
+    if (!activeIds.has(memberId)) throw new Error(NO_ACTIVE_MEMBERSHIP_MESSAGE)
+
     const { error } = await supabase
       .from('training_plans')
       .update({ assigned_to: memberId })
@@ -398,6 +422,12 @@ export const trainingService = {
 
   assignMultiple: async (planId: string, memberIds: string[]): Promise<void> => {
     if (memberIds.length === 0) return
+
+    // Defensa en profundidad: ningún miembro sin membresía vigente puede recibir
+    // un plan, aunque la UI haya permitido seleccionarlo.
+    const activeIds = await membershipsService.getActiveMemberIds(memberIds)
+    if (memberIds.some(id => !activeIds.has(id))) throw new Error(NO_ACTIVE_MEMBERSHIP_MESSAGE)
+
     const { error } = await supabase
       .from('plan_assignments')
       .insert(memberIds.map(memberId => ({ plan_id: planId, member_id: memberId })))
@@ -412,7 +442,7 @@ export const trainingService = {
       .eq('plan_id', planId)
 
     if (error) throw error
-    return (data || []).map(a => ({ id: a.member_id, full_name: (a.member as any).full_name }))
+    return (data || []).map(a => ({ id: a.member_id, full_name: one(a.member)?.full_name ?? '' }))
   },
 
   removeAssignment: async (planId: string, memberId: string): Promise<void> => {
